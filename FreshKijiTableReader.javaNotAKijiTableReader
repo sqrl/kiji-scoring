@@ -1,0 +1,19 @@
+public interface FreshKijiTableReader extends Closeable {
+
+  KijiRowData getFresh(EntityId entityId, KijiDataRequest dataRequest) throws IOException;
+
+  List<KijiRowData> bulkGetFresh(List<EntityId> entityIds, KijiDataRequest dataRequest)
+      throws IOException;
+
+  // Same question as the FreshKijiTableReader, should this be an actual KijiRowScanner or just
+  // have the same methods?
+  FreshKijiRowScanner getFreshScanner(
+      KijiDataRequest dataRequest, KijiScannerOptions scannerOptions)
+      throws IOExcetion;
+
+  // TODO: Does the Fresh scanner need special options, or just the regular options?
+  FreshKijiRowScanner getFreshScanner(
+      KijiDataRequest dataRequest, KijiScannerOptions scannerOptions)
+      throws IOException;
+}
+
