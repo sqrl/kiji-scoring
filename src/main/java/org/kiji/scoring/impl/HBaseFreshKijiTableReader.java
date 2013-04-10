@@ -1,3 +1,33 @@
+/**
+ * (c) Copyright 2013 WibiData, Inc.
+ *
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.kiji.scoring.impl;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @ApiAudience.Private
 public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   private static final Logger LOG = LoggerFactory.getLogger(HBaseFreshKijiTableReader.class);
@@ -55,10 +85,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /**
    * Executes isFresh on all freshness policies according to their various data requests.
    */
-  private Map<String, boolean> checkFreshness(
+  private Map<String, Boolean> checkFreshness(
       Map<String, KijiFreshnessPolicy> policies,
       KijiDataRequest dataRequest) {
-    Map<String, boolean> freshness = new HashMap();
+    Map<String, Boolean> freshness = new HashMap();
     Map<String, KijiFreshnessPolicy> deferred = new HashMap();
     for (Map.Entry<String, KijiFreshnessPolicy> entry: policies) {
       if (entry.getValue().shouldUseClientDataRequest()) {
@@ -79,9 +109,9 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
 
   /** {@inheritDoc} */
   @Override
-  public KijiRowData get(EntityId eid, KijiDataRequest dataRequest) throws IOException {
+  public KijiRowData get(EntityId eid, final KijiDataRequest dataRequest) throws IOException {
     final long startTime = System.currentTimeMillis();
-    
+
     // TODO: use helper methods to separate workflow elements
     // One plan:
     // 1) get the freshness policy(ies) from the cache
@@ -117,10 +147,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     Map<String, KijiFreshnessPolicy> usesClientDataRequest = new HashMap();
     Map<String, KijiFreshnessPolicy> usesOwnDataRequest = new HashMap();
     for (Map.Entry<String, KijiFreshnessPolicy> entry: policies) {
-      if (entry.getValue().shouldUseClientDataRequest) {
+      if (entry.getValue().shouldUseClientDataRequest()) {
         usesClientDataRequest.put(entry.getKey(), entry.getValue());
       } else {
-        usesOwnDataRequest.put(entry.getValue(), entry.getValue());
+        usesOwnDataRequest.put(entry.getKey(), entry.getValue());
       }
     }
     Future<KijiRowData> clientData = null
@@ -129,10 +159,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         public KijiRowData call() {
           return mReader.get(dataRequest);
         }
-      };
+      });
     }
     List<Future<Boolean>> futures = Lists.newArrayList();
-    for (Map.Entry<String, KijiFreshnessPolicy> entry: usesClientDataRequest) {
+    for (final Map.Entry<String, KijiFreshnessPolicy> entry: usesClientDataRequest) {
       final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
         public Boolean call() {
           final KijiRowData rowData = clientData.get();
@@ -147,10 +177,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
             // TODO: add the context
           }
         }
-      };
+      });
       futures.add(requiresReread);
     }
-    for (Map.Entry<String, KijiFreshnessPolicy> entry: usesOwnDataRequest) {
+    for (final Map.Entry<String, KijiFreshnessPolicy> entry: usesOwnDataRequest) {
       final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
         public Boolean call() {
           final KijiRowData rowData = mReader.get(entry.getValue().getDataRequest());
@@ -203,7 +233,7 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       // Alternately, create a future for each policy
       final Future<Boolean> future = executor.submit(new Callable<boolean>() {
         public Boolean call() {
-          final 
+          final
         }
       }
     }
