@@ -22,8 +22,7 @@ import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
 /**
- * Created with IntelliJ IDEA. User: aaron Date: 4/10/13 Time: 10:58 AM To change this template use
- * File | Settings | File Templates.
+ * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns stale for any KijiRowData.
  */
 public final class NeverFresh implements KijiFreshnessPolicy {
 
@@ -44,13 +43,13 @@ public final class NeverFresh implements KijiFreshnessPolicy {
   }
 
   @Override
-  public KijiFreshnessPolicyRecord store() {
-    // build the record with relevant information, in this case a producer class, this class, and no state
-    return record;
+  public String store() {
+    // Return the empty string because NeverFresh requires no state.
+    return "";
   }
 
   @Override
-  public void load(KijiFreshnessPolicyRecord record) {
+  public void load(String policyState) {
     // empty because this policy has no state.
   }
 }

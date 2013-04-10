@@ -29,6 +29,7 @@ import org.kiji.schema.KijiRowData;
  * File | Settings | File Templates.
  */
 public final class ShelfLife implements KijiFreshnessPolicy {
+  // TODO: Figure out how we get the column name
   private KijiColumnName mTargetColumnName;
   private long mShelfLifeMillis = -1;
 
@@ -62,15 +63,14 @@ public final class ShelfLife implements KijiFreshnessPolicy {
   }
 
   @Override
-  public KijiFreshnessPolicyRecord store() {
-    // build the record with relevant information, in this case a producer class, this class, and
-    // the shelf life value
-    return record;
+  public String store() {
+    // The only required state is the shelf life duration.
+    return String.valueOf(mShelfLifeMillis);
   }
 
   @Override
-  public void load(KijiFreshnessPolicyRecord record) {
-    // Load the shelf life from the policy state record
-    mShelfLifeMillis = record.getPolicyState().getShelfLife();
+  public void load(String policyState) {
+    // Load the shelf life from the policy state.
+    mShelfLifeMillis = Long.parseLong(policyState);
   }
 }

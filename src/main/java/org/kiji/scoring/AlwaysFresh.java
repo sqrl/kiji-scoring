@@ -22,8 +22,7 @@ import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
 /**
- * Created with IntelliJ IDEA. User: aaron Date: 4/10/13 Time: 10:50 AM To change this template use
- * File | Settings | File Templates.
+ * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh for any KijiRowData.
  */
 public final class AlwaysFresh implements KijiFreshnessPolicy {
   //{@inheritDoc}
@@ -43,13 +42,13 @@ public final class AlwaysFresh implements KijiFreshnessPolicy {
   }
 
   @Override
-  public KijiFreshnessPolicyRecord store() {
-    // build the record with relevant information, in this case no producer, this class, and no state
-    return record;
+  public String store() {
+    // Return the empty string because AlwaysFresh requires no state.
+    return "";
   }
 
   @Override
-  public void load(KijiFreshnessPolicyRecord record) {
+  public void load(String policyState) {
     // empty because this policy has no state.
   }
 }

@@ -6,20 +6,43 @@ import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiDataRequest;
 
 public interface KijiFreshnessPolicy {
-  // Is the RowData fresh?
+  /**
+   * Tests a KijiRowData for freshness according to this policy.
+   *
+   * @param rowData The KijiRowData to test for freshness.
+   * @param return Whether the data is fresh.
+   */
   boolean isFresh(KijiRowData rowData);
 
-  // Does the user's data request fulfill the requirements of isFresh?
+  /**
+   * Does this freshness policy operate on the client's requested data, or should it use its own
+   * custom data request?
+   *
+   * @return Whether to use the client's data request.
+   */
   boolean shouldUseClientDataRequest();
 
-  // If the freshness policy requires a special data request, otherwise null
+  /**
+   * Custom data request required to fulfill
+   * {@link KijiFreshnessPolicy#isFresh(org.kiji.schema.KijiRowData)} isFresh(KijiRowData)} if the
+   * client's data request is insufficient.
+   *
+   * @return The custom data request.
+   */
   KijiDataRequest getDataRequest();
 
-  // serialize any state needed by the freshness policy for storage in the metatable
-  // can be String or Avro record?
-  KijiFreshnessPolicyRecord store();
+  /**
+   * Serializes any state of the freshness policy for storage in a
+   * {@link org.kiji.schema.KijiMetaTable}.
+   *
+   * @return A string representing any required state for this freshness policy.
+   */
+  String store();
 
-  // Deserialize a freshness policy's state from the metatable
-  // Build the necessary state? basically a constructor?
-  void load(KijiFreshnessPolicyRecord record);
+  /**
+   * Deserializes state from a {@link org.kiji.schema.KijiMetaTable} and initializes this freshness
+   * policy with that state.
+   * @param policyState Serialized string retrieved from a KijiMetaTable.
+   */
+  void load(String policyState);
 }

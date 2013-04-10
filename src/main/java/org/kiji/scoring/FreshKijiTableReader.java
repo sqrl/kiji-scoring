@@ -20,4 +20,50 @@ package org.kiji.scoring;
 
 import org.kiji.schema.KijiTableReader;
 
+/**
+ * Interface for reading freshened data from a Kiji Table.
+ *
+ * <p>
+ *   Utilizes {@link org.kiji.schema.EntityId} and {@link org.kiji.schema.KijiDataRequest}
+ *   to return {@link org.kiji.schema.KijiRowData}.  Accessible via
+ *   {@link FreshKijiTableReaderFactory#openFreshReader(org.kiji.schema.KijiTable)}.
+ * </p>
+ *
+ * <p>
+ *   Reads performed with FreshKijiTableReaders pass through freshness filters according to
+ *   {@link org.kiji.scoring.KijiFreshnessPolicy}s registered in the
+ *   {@link org.kiji.schema.KijiMetaTable} that services the table associated with this reader.
+ * </p>
+ *
+ * <p>
+ *   Freshening describes the process of conditionally applying a
+ *   {@link org.kiji.mapreduce.produce.KijiProducer} to a row in response to user queries for data
+ *   in that row.  Consequently, methods of a FreshKijiTableReader have the possibility of
+ *   generating side effect writes to the rows users query.
+ * </p>
+ *
+ * <p>
+ *   FreshKijiTableReader get methods are used in the same way as regular KijiTableReader get
+ *   methods.
+ * </p>
+ * <p>
+ *   To get the three most recent versions of cell data from a column <code>bar</code> from
+ *   the family <code>foo</code> within the time range (123, 456):
+ * <pre>
+ *   KijiDataRequestBuilder builder = KijiDataRequest.builder()
+ *     .withTimeRange(123L, 456L);
+ *     .newColumnsDef()
+ *     .withMaxVersions(3)
+ *     .add("foo", "bar");
+ *   final KijiDataRequest request = builder.build();
+ *
+ *   final KijiTableReader freshReader = FreshKijiTableReaderFactory.openFreshReader(myKijiTable);
+ *   final KijiRowData data = freshReader.get(myEntityId, request);
+ * </pre>
+ *   This code will return the three most recent values including newly generated values output by
+ *   the producer if it ran.
+ * </p>
+ *
+ * @see org.kiji.scoring.KijiFreshnessPolicy
+ */
 public interface FreshKijiTableReader extends KijiTableReader {}

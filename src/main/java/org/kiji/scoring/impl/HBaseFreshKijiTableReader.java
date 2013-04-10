@@ -35,6 +35,7 @@ import org.kiji.schema.impl.HBaseKijiTable;
 import org.kiji.schema.util.ResourceUtils;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 @ApiAudience.Private
 public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
@@ -64,6 +65,7 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       // For all keys in the metatable, if those keys are freshness policy entries, cache them locally.
       for (String key: keySet) {
         if (key.startsWith("kiji.scoring.fresh.")) {
+          // TODO: convert this byte[] to an avro record
           mPolicyRecords.put(key.substring(19), metaTable.getValue(mTable.getName(), key));
         }
       }
@@ -85,9 +87,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       final KijiFreshnessPolicyRecord record = mPolicyRecords.get(column.getName());
       if (record != null) {
         // Instantiate and initialize the policies.
-        final KijiFreshnessPolicy policy = ReflectionUtils.newInstance(record.getPolicyClass, null);
-        policy.load(record.getPolicyState);
-        // Set the producer for the policy
+        final KijiFreshnessPolicy policy =
+            ReflectionUtils.newInstance(Class.forName(record.getPolicyClass()), null);
+        policy.load(record.getPolicyState());
+        // Add the policy to the list of policies applicable to this data request.
         policies.put(column.getName(), policy);
       }
     }
@@ -97,7 +100,7 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /**
    * Executes isFresh on all freshness policies according to their various data requests.
    * Unfinished because the roadmap changed and this method is no longer useful.
-   */
+   *
   private Map<String, Boolean> checkFreshness(
       Map<String, KijiFreshnessPolicy> policies,
       KijiDataRequest dataRequest) {
@@ -114,11 +117,11 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         freshness.put(entry.getKey(), fresh);
       }
     }
-    final KijiRowData clientData = mReader.get(dataRequest);
+    final KijiRowData clientData = mReader.get(eid, dataRequest);
     for (Map.Entry<String, KijiFreshnesPolicy> entry: deferred) {
       freshness.put(entry.getKey(), entry.getValue().isFresh(clientData));
     }
-  }
+  }*/
 
   /** {@inheritDoc} */
   @Override
@@ -152,9 +155,9 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     // 1) check if any freshness policy uses the client data request
     // 2) if one does, start a future to get that data
     // 3) Start a future for each freshness policy that requires the client data.
-    // 4) start a future for each freshness policy that uses its own data request (these return
-    //    Boolean for whether a reread is required.  If the future has not returned when timeout
-    //    occurs, assume reread
+    // 4) start a future for each freshness policy that uses its own data request
+    //    all futures except the first return a Boolean for whether a reread is required.  If any
+    //    future has not returned when timeout occurs, assume reread.
 
     final ExecutorService executor = FreshenerThreadPool.getInstance().get();
     Map<String, KijiFreshnessPolicy> usesClientDataRequest = new HashMap();
@@ -167,17 +170,17 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       }
     }
     final Map<String, KijiFreshnessPolicy> finalUsesClientDataRequest = usesClientDataRequest;
-    final Map<String, KijiFreshnessPolicy> finalOwnClientDataRequest = usesOwnDataRequest;
+    final Map<String, KijiFreshnessPolicy> finalUsesOwnDataRequest = usesOwnDataRequest;
     Future<KijiRowData> clientData = null;
     List<Future<Boolean>> futures = Lists.newArrayList();
-    if (usesClientDataRequest.size() != 0) {
+    if (finalUsesClientDataRequest.size() != 0) {
       clientData = executor.submit(new Callable<KijiRowData>() {
         public KijiRowData call() throws IOException {
           return mReader.get(eid, dataRequest);
         }
       });
       final Future<KijiRowData> finalClientData = clientData;
-      for (final String key: usesClientDataRequest.keySet()) {
+      for (final String key: finalUsesClientDataRequest.keySet()) {
         final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
           public Boolean call() {
             KijiRowData rowData = null;
@@ -188,32 +191,40 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
             }
             final boolean isFresh = finalUsesClientDataRequest.get(key).isFresh(rowData);
             if (isFresh) {
+              // If isFresh, return false to indicate a reread is not necessary.
               return Boolean.FALSE;
             } else {
               final KijiProducer producer = ReflectionUtils.newInstance(
-                  mPolicyRecords.get(entry.getKey()).getProducerClass(), null);
-              producer.produce(rowData, CONTEXT);
-              return Boolean.TRUE;
+                  mPolicyRecords.get(key).getProducerClass(), null);
+              // TODO: Does the producer need to be initialized?
               // TODO: add the context
+              producer.produce(rowData, CONTEXT);
+              // If a producer runs, return true to indicate a reread is necessary.
+              return Boolean.TRUE;
+
             }
           }
         });
         futures.add(requiresReread);
       }
     }
-    for (final Map.Entry<String, KijiFreshnessPolicy> entry: usesOwnDataRequest) {
+    for (final String key: usesOwnDataRequest.keySet()) {
       final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
-        public Boolean call() {
-          final KijiRowData rowData = mReader.get(entry.getValue().getDataRequest());
-          final boolean isFresh = entry.getValue().isFresh(rowData);
+        public Boolean call() throws IOException {
+          final KijiRowData rowData =
+              mReader.get(eid, finalUsesOwnDataRequest.get(key).getDataRequest());
+          final boolean isFresh = finalUsesOwnDataRequest.get(key).isFresh(rowData);
           if (isFresh) {
+            // If isFresh, return false to indicate a reread is not necessary.
             return Boolean.FALSE;
           } else {
             final KijiProducer producer = ReflectionUtils.newInstance(
-                mPolicyRecords.get(entry.getKey()).getProducerClass(), null);
-            producer.produce(rowData, CONTEXT);
-            return Boolean.TRUE;
+                mPolicyRecords.get(key).getProducerClass(), null);
+            // TODO: Does the producer need to be initialized?
             // TODO: add the context
+            producer.produce(rowData, CONTEXT);
+            // If a producer runs, return true to indicate a reread is necessary.
+            return Boolean.TRUE;
           }
         }
       });
@@ -223,61 +234,44 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
 
     final List<Future<Boolean>> finalFutures = futures;
     final Future<Boolean> superFuture = executor.submit(new Callable<Boolean>() {
-      public Boolean call() {
+      public Boolean call() throws InterruptedException, ExecutionException{
         boolean retVal = false;
         for (Future<Boolean> future: finalFutures) {
-          try {
-            retval = future.get() || retVal;
-          } catch (InterruptedException ie) {
-          } catch (ExecutionException ee) {
-          }
+          // block on completion of each future and update the return value to be true if any
+          // future returns true.
+          retVal = future.get() || retVal;
         }
         return retVal;
       }
     });
 
+    // TODO: setup timeout
     final long timeOut = 1000;
     try {
-      // TODO: setup timeout
       if (superFuture.get(timeOut, TimeUnit.MILLISECONDS)) {
-        return mReader.get(dataRequest);
+        return mReader.get(eid, dataRequest);
       } else {
-        return clientData.get();
-      }
-    } catch (InterruptedException ie) {
-    } catch (ExecutionException ee) {
-    } catch (TimeoutException te) {
-      return mReader.get(dataRequest);
-    }
-
-      //for (Future<Boolean> future: futures) {
-//        if (future.isDone() && (future.get() == )
-
-    //TODO: Figure out how to block with timeout on these threads.
-
-    /**
-    for (Map.Entry<String, KijiFreshnessPolicy> entry: policies) {
-      // TODO: get a thread and start running
-      // Add threads to list?
-      // Alternately, create a future for each policy
-      final Future<Boolean> future = executor.submit(new Callable<boolean>() {
-        public Boolean call() {
-          final
+        if (clientData != null) {
+          return clientData.get();
+        } else {
+          return mReader.get(eid, dataRequest);
         }
       }
+    } catch (InterruptedException ie) {
+      throw new RuntimeException();
+      //TODO: handle exceptions
+    } catch (ExecutionException ee) {
+      throw new RuntimeException();
+    } catch (TimeoutException te) {
+      return mReader.get(eid, dataRequest);
     }
-    for (Thread t: threadList) {
-      t.join(timeout);
-    }
-    for (Thread t: threadList) {
-    */
-
   }
 
   /** {@inheritDoc} */
   @Override
-  public KijiRowData bulkGet(List<EntityId> eids, KijiDataRequest dataRequest) {
+  public List<KijiRowData> bulkGet(List<EntityId> eids, KijiDataRequest dataRequest) {
     // TODO: this
+    return null;
   }
 
   /** {@inheritDoc} */
