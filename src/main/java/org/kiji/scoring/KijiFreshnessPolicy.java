@@ -1,19 +1,25 @@
 // How are these constructed? How/where are they retrieved from the metatable?  What information
 // should be serialized into the metatable and how?
+package org.kiji.scoring;
+
+import org.kiji.schema.KijiRowData;
+import org.kiji.schema.KijiDataRequest;
 
 public interface KijiFreshnessPolicy {
   // Is the RowData fresh?
-  boolean isFresh(KijiRowData);
+  boolean isFresh(KijiRowData rowData);
+
+  // Does the user's data request fulfill the requirements of isFresh?
+  boolean shouldUseClientDataRequest();
 
   // If the freshness policy requires a special data request, otherwise null
-  KijiDataRequest requiredDataRequest();
+  KijiDataRequest getDataRequest();
 
-  // serialize the freshness policy for storage in the metatable
+  // serialize any state needed by the freshness policy for storage in the metatable
   // can be String or Avro record?
   KijiFreshnessPolicyRecord store();
 
-  // Deserialize a freshness policy from the metatable
+  // Deserialize a freshness policy's state from the metatable
   // Build the necessary state? basically a constructor?
-  // Should this take a KijiDataRequest and find the freshness policies it needs based on that?
-  void load(KijiFreshnessPolicyRecord);
+  void load(KijiFreshnessPolicyRecord record);
 }
