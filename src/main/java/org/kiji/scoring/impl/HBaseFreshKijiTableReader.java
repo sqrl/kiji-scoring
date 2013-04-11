@@ -167,9 +167,9 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     //    future has not returned when timeout occurs, assume reread.
 
     final ExecutorService executor = FreshenerThreadPool.getInstance().get();
-    Map<String, KijiFreshnessPolicy> usesClientDataRequest =
+    final Map<String, KijiFreshnessPolicy> usesClientDataRequest =
         new HashMap<String, KijiFreshnessPolicy>();
-    Map<String, KijiFreshnessPolicy> usesOwnDataRequest =
+    final Map<String, KijiFreshnessPolicy> usesOwnDataRequest =
         new HashMap<String, KijiFreshnessPolicy>();
     for (String key: policies.keySet()) {
       if (policies.get(key).shouldUseClientDataRequest()) {
@@ -178,30 +178,27 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         usesOwnDataRequest.put(key, policies.get(key));
       }
     }
-    final Map<String, KijiFreshnessPolicy> finalUsesClientDataRequest = usesClientDataRequest;
-    final Map<String, KijiFreshnessPolicy> finalUsesOwnDataRequest = usesOwnDataRequest;
-    Future<KijiRowData> clientData = null;
-    List<Future<Boolean>> futures = Lists.newArrayList();
-    if (finalUsesClientDataRequest.size() != 0) {
-      clientData = executor.submit(new Callable<KijiRowData>() {
-        public KijiRowData call() throws IOException {
-          return mReader.get(eid, dataRequest);
-        }
-      });
-      final Future<KijiRowData> finalClientData = clientData;
-      for (final String key: finalUsesClientDataRequest.keySet()) {
+    final Future<KijiRowData> clientData = (usesClientDastaRequest.size() != 0) ?
+        executor.submit(new Callable<KijiRowData>() {
+          public KijiRowData call() throws IOException {
+            return mReader.get(eid, dataRequest);
+          }
+        }) : null;
+    final List<Future<Boolean>> futures = Lists.newArrayList();
+    if (usesClientDataRequest.size() != 0) {
+      for (final String key: usesClientDataRequest.keySet()) {
         final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
           public Boolean call() {
             KijiRowData rowData;
             try {
-              rowData = finalClientData.get();
+              rowData = clientData.get();
             } catch (InterruptedException ie) {
               // TODO: Figure out what to actually do here.
               throw new RuntimeException("interrupted");
             } catch (ExecutionException ee) {
               throw new RuntimeException("execution error");
             }
-            final boolean isFresh = finalUsesClientDataRequest.get(key).isFresh(rowData);
+            final boolean isFresh = usesClientDataRequest.get(key).isFresh(rowData);
             if (isFresh) {
               // If isFresh, return false to indicate a reread is not necessary.
               return Boolean.FALSE;
@@ -231,8 +228,8 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
         public Boolean call() throws IOException {
           final KijiRowData rowData =
-              mReader.get(eid, finalUsesOwnDataRequest.get(key).getDataRequest());
-          final boolean isFresh = finalUsesOwnDataRequest.get(key).isFresh(rowData);
+              mReader.get(eid, usesOwnDataRequest.get(key).getDataRequest());
+          final boolean isFresh = usesOwnDataRequest.get(key).isFresh(rowData);
           if (isFresh) {
             // If isFresh, return false to indicate a reread is not necessary.
             return Boolean.FALSE;
@@ -258,11 +255,10 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     }
 
 
-    final List<Future<Boolean>> finalFutures = futures;
     final Future<Boolean> superFuture = executor.submit(new Callable<Boolean>() {
       public Boolean call() throws InterruptedException, ExecutionException{
         boolean retVal = false;
-        for (Future<Boolean> future: finalFutures) {
+        for (Future<Boolean> future: futures) {
           // block on completion of each future and update the return value to be true if any
           // future returns true.
           retVal = future.get() || retVal;
