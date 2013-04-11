@@ -1,21 +1,41 @@
+package org.kiji.scoring;
+
+import java.io.Closeable;
+import java.io.IOException;
+
+import org.kiji.mapreduce.produce.KijiProducer;
+import org.kiji.schema.Kiji;
+import org.kiji.schema.KijiMetaTable;
 
 // Implements Closeable because it has a connection to the metatable
 // Should this be a static utility class? All methods would need to take a kiji instance as well.
 public final class KijiFreshnessManager implements Closeable {
 
+  KijiMetaTable mMetaTable;
+
   // Get a Kiji in to get the metatable
-  public KijiFreshnessManager(Kiji kiji) {
+  public KijiFreshnessManager(Kiji kiji) throws IOException {
     mMetaTable = kiji.getMetaTable();
   }
 
   public void storeFreshness(String tableName, String columnName,
-      Class<T extends KijiProducer> producerClass, FreshnessPolicy policy) throws IOException {
-    // write to the metatable.  Is the metatable maxversions = 1?
-    // TODO how do we manage freshness policy namespace
+      Class<KijiProducer> producerClass, KijiFreshnessPolicy policy) throws IOException {
+    // write to the meta table.  Is the meta table max versions = 1?
+    // TODO: this
+    //mMetaTable.putValue()
   }
 
-  public void removeFreshness(String tableName, String columnName) {
-    // delete from the metatable by the timestamp of the old value so that a new value may be
-    // written without conflict.
+  public KijiFreshnessPolicyRecord retrievePolicy(
+      String tableName, String columnName) throws IOException {
+    // TODO: this
+    return null;
   }
 
+  public void removeFreshness(String tableName, String columnName) throws IOException {
+    mMetaTable.removeValues(tableName, columnName);
+  }
+
+  public void close() throws IOException {
+    mMetaTable.close();
+  }
+}

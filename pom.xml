@@ -28,6 +28,14 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.avro</groupId>
+        <artifactId>avro-maven-plugin</artifactId>
+        <configuration>
+          <!-- Avro string compiled to java.lang.String instead of CharSequence -->
+          <stringType>String</stringType>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
       </plugin>
@@ -190,4 +198,24 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <repositories>
+    <repository>
+      <id>kiji-repos</id>
+      <name>kiji-repos</name>
+      <url>https://repo.wibidata.com/artifactory/kiji</url>
+    </repository>
+    <repository>
+      <id>kiji-nightly</id>
+      <name>kiji-nightly</name>
+      <url>https://repo.wibidata.com/artifactory/kiji-nightly</url>
+    </repository>
+  </repositories>
+
+  <scm>
+    <connection>scm:git:git@github.com:kijiproject/kiji-scoring.git</connection>
+    <url>scm:git:git@github.com:kijiproject/kiji-scoring.git</url>
+    <developerConnection>scm:git:git@github.com:kijiproject/kiji-scoring.git</developerConnection>
+  </scm>
+
 </project>
