@@ -19,8 +19,17 @@
 package org.kiji.scoring.impl;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
 import org.apache.hadoop.util.ReflectionUtils;
@@ -29,8 +38,14 @@ import org.slf4j.LoggerFactory;
 
 import org.kiji.annotations.ApiAudience;
 import org.kiji.mapreduce.produce.KijiProducer;
-import org.kiji.schema.*;
+import org.kiji.schema.EntityId;
+import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiDataRequest.Column;
+import org.kiji.schema.KijiMetaTable;
+import org.kiji.schema.KijiRowData;
+import org.kiji.schema.KijiRowScanner;
+import org.kiji.schema.KijiTable;
+import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.util.ResourceUtils;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
@@ -38,7 +53,7 @@ import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.KijiFreshnessPolicyRecord;
 
 @ApiAudience.Private
-public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
+public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   private static final Logger LOG = LoggerFactory.getLogger(HBaseFreshKijiTableReader.class);
 
   /** The kiji table instance. */
@@ -47,6 +62,12 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /** Default reader to which to delegate reads. */
   private KijiTableReader mReader;
 
+  /** Freshener thread pool executor service. */
+  private final ExecutorService mExecutor;
+
+  /** Timeout duration for get requests. */
+  private final int mTimeout;
+
   /** Map from column names to freshness policies and their required state. */
   private Map<String, KijiFreshnessPolicyRecord> mPolicyRecords;
 
@@ -54,26 +75,24 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * Creates a new <code>HBaseFreshKijiTableReader</code> instance that sends read requests
    * to an HBase table and performs freshening on the returned data.
    */
-  public HBaseFreshKijiTableReader(KijiTable table) throws IOException {
+  public HBaseFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
     mTable = table;
     final KijiFreshnessManager manager = new KijiFreshnessManager(table.getKiji());
     // opening a reader retains the table, so we do not need to call retain manually.
     mReader = mTable.openTableReader();
-    try{
-      final KijiMetaTable metaTable = mTable.getKiji().getMetaTable();
-      final Set<String> keySet = metaTable.keySet(mTable.getName());
-      mPolicyRecords = new HashMap<String, KijiFreshnessPolicyRecord>();
-      // For all keys in the metatable, if those keys are freshness policy entries, cache them locally.
-      for (String key: keySet) {
-        if (key.startsWith("kiji.scoring.fresh.")) {
-          final String columnName = key.substring(19);
-          // TODO: convert this byte[] to an avro record
-          mPolicyRecords.put(columnName, manager.retrievePolicy(table.getName(), columnName));
-        }
+    final KijiMetaTable metaTable = mTable.getKiji().getMetaTable();
+    final Set<String> keySet = metaTable.keySet(mTable.getName());
+    mPolicyRecords = new HashMap<String, KijiFreshnessPolicyRecord>();
+    // For all keys in the metatable, if those keys are freshness policy entries, cache them locally.
+    for (String key: keySet) {
+      if (key.startsWith("kiji.scoring.fresh.")) {
+        final String columnName = key.substring(19);
+        // TODO: convert this byte[] to an avro record
+        mPolicyRecords.put(columnName, manager.retrievePolicy(table.getName(), columnName));
       }
-    } catch (IOException ioe) {
-      // TODO something
     }
+    mExecutor = FreshenerThreadPool.getInstance().get();
+    mTimeout = timeout;
   }
 
   /**
@@ -107,6 +126,128 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   }
 
   /**
+   * Gets a KijiRowData representing the data the user requested at the time they requested it.
+   * May be used by freshness policies to determine freshness, and may be returned by a call to
+   * {@link #get(EntityId, KijiDataRequest)}.  Should only be called once per call to get().
+   *
+   * @param eid The EntityId specified by the client's call to get().
+   * @param dataRequest The client's data request.
+   * @param size The number of freshness policies that use the client's data request to test for
+   *   freshness.
+   * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
+   *   freshness policies require the user's requested data.
+   */
+  private Future<KijiRowData> getClientData(
+      final EntityId eid, final KijiDataRequest dataRequest, int size) {
+    Future<KijiRowData> clientData = null;
+    if (size != 0) {
+      clientData = mExecutor.submit(new Callable<KijiRowData>() {
+        public KijiRowData call() throws IOException {
+          return mReader.get(eid, dataRequest);
+        }
+      });
+    }
+  return clientData;
+  }
+
+  /**
+   *
+   */
+  private KijiProducer producerForName(String producer) {
+    try {
+      return ReflectionUtils.newInstance(
+        Class.forName(producer).asSubclass(KijiProducer.class), null);
+    } catch (ClassNotFoundException cnfe) {
+      throw new RuntimeException(String.format(
+          "Producer class %s was not found on the classpath",
+          producer));
+    }
+  }
+
+  /**
+   * Creates a future for each {@link org.kiji.scoring.KijiFreshnessPolicy} applicable to a given
+   * {@link org.kiji.schema.KijiDataRequest}.
+   *
+   * @param usesClientDataRequest A map from column name to KijiFreshnessPolicies that use the
+   *   client data request to fulfill isFresh() calls.
+   * @param usesOwnDataRequest A map from column name to KijiFreshnessPolicies that use custom
+   *   data requests to fulfill isFresh() calls.
+   * @param clientData A Future&lt;KijiRowData&gt; representing the data requested by the client
+   * @param eid The EntityId specified by the client's call to get().
+   * @return A list of Future&lt;Boolean&gt; representing the need to reread data from the table
+   *   to include producer output after freshening.
+   */
+  private List<Future<Boolean>> getFutures(
+      final Map<String, KijiFreshnessPolicy> usesClientDataRequest,
+      final Map<String, KijiFreshnessPolicy> usesOwnDataRequest,
+      final Future<KijiRowData> clientData,
+      final EntityId eid) {
+    final List<Future<Boolean>> futures = Lists.newArrayList();
+    for (final String key: usesClientDataRequest.keySet()) {
+      final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
+        public Boolean call() {
+          KijiRowData rowData = null;
+          try {
+            rowData = clientData.get();
+          } catch (InterruptedException ie) {
+            throw new RuntimeException("Freshening thread interrupted", ie);
+          } catch (ExecutionException ee) {
+            final IOException ioe = (IOException) ee.getCause();
+            LOG.warn("Client data could not be retrieved.  Freshness policies which operate against"
+                + "the client data request will not run. " + ioe.getMessage());
+          }
+          if (rowData != null) {
+            final boolean isFresh = usesClientDataRequest.get(key).isFresh(rowData);
+            if (isFresh) {
+              // If isFresh, return false to indicate a reread is not necessary.
+              return Boolean.FALSE;
+            } else {
+              final KijiProducer producer =
+                  producerForName(mPolicyRecords.get(key).getProducerClass());
+              // TODO: Does the producer need to be initialized?
+              // TODO: add the context
+              producer.produce(rowData, CONTEXT);
+              // If a producer runs, return true to indicate a reread is necessary.  This assumes
+              // the producer will write to the requested cells, eventually it may be appropriate
+              // to actually check if this is true.
+              return Boolean.TRUE;
+            }
+          } else {
+            return Boolean.FALSE;
+          }
+        }
+      });
+      futures.add(requiresReread);
+    }
+    for (final String key: usesOwnDataRequest.keySet()) {
+      final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
+        public Boolean call() throws IOException {
+          final KijiRowData rowData =
+              mReader.get(eid, usesOwnDataRequest.get(key).getDataRequest());
+          final boolean isFresh = usesOwnDataRequest.get(key).isFresh(rowData);
+          if (isFresh) {
+            // If isFresh, return false to indicate a reread is not necessary.
+            return Boolean.FALSE;
+          } else {
+            final KijiProducer producer =
+                producerForName(mPolicyRecords.get(key).getProducerClass());
+            // TODO: Does the producer need to be initialized?
+            // TODO: add the context
+            producer.produce(rowData, CONTEXT);
+            // If a producer runs, return true to indicate a reread is necessary.  This assumes
+            // the producer will write to the requested cells, eventually it may be appropriate
+            // to actually check if this is true.
+            return Boolean.TRUE;
+          }
+        }
+      });
+      futures.add(requiresReread);
+    }
+    return futures;
+  }
+
+
+  /**
    * Executes isFresh on all freshness policies according to their various data requests.
    * Unfinished because the roadmap changed and this method is no longer useful.
    *
@@ -132,41 +273,42 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     }
   }*/
 
+  // TODO: use helper methods to separate workflow elements
+  // One plan:
+  // 1) get the freshness policy(ies) from the cache
+  // 2) check if the freshness policy uses the client data request
+  // 3) issue the appropriate data request
+  // 4) call freshnessPolicy.isFresh()
+  // 5) if (isFresh && shouldUseClientDataRequest) return to user
+  //    if (isFresh && !shouldUse) send the user request to the table and return
+  //    if (!isFresh) run producer then send user request to table and return
+  // Another plan:
+  // 1) get the freshness policies from the cache
+  // 2) branch threads for each policy
+  // 3) each thread checks for freshness
+  // 4) each thread conditionally runs a producer
+  // 5) all threads finish or the timeout occurs, ask each thread for shouldReread(),
+  //      if any return true, read from the table and return
+
+  // 1) check if any freshness policy uses the client data request
+  // 2) if one does, start a future to get that data
+  // 3) Start a future for each freshness policy that requires the client data.
+  // 4) start a future for each freshness policy that uses its own data request
+  //    all futures except the first return a Boolean for whether a reread is required.  If any
+  //    future has not returned when timeout occurs, assume reread.
+
+
   /** {@inheritDoc} */
   @Override
   public KijiRowData get(final EntityId eid, final KijiDataRequest dataRequest) throws IOException {
-    // TODO: use helper methods to separate workflow elements
-    // One plan:
-    // 1) get the freshness policy(ies) from the cache
-    // 2) check if the freshness policy uses the client data request
-    // 3) issue the appropriate data request
-    // 4) call freshnessPolicy.isFresh()
-    // 5) if (isFresh && shouldUseClientDataRequest) return to user
-    //    if (isFresh && !shouldUse) send the user request to the table and return
-    //    if (!isFresh) run producer then send user request to table and return
-    // Another plan:
-    // 1) get the freshness policies from the cache
-    // 2) branch threads for each policy
-    // 3) each thread checks for freshness
-    // 4) each thread conditionally runs a producer
-    // 5) all threads finish or the timeout occurs, ask each thread for shouldReread(),
-    //      if any return true, read from the table and return
 
-    Map<String, KijiFreshnessPolicy> policies = getPolicies(dataRequest);
+    final Map<String, KijiFreshnessPolicy> policies = getPolicies(dataRequest);
     // If there are no freshness policies attached to the requested columns, return the requested
     // data.
     if (policies.size() == 0) {
       return mReader.get(eid, dataRequest);
     }
 
-    // 1) check if any freshness policy uses the client data request
-    // 2) if one does, start a future to get that data
-    // 3) Start a future for each freshness policy that requires the client data.
-    // 4) start a future for each freshness policy that uses its own data request
-    //    all futures except the first return a Boolean for whether a reread is required.  If any
-    //    future has not returned when timeout occurs, assume reread.
-
-    final ExecutorService executor = FreshenerThreadPool.getInstance().get();
     final Map<String, KijiFreshnessPolicy> usesClientDataRequest =
         new HashMap<String, KijiFreshnessPolicy>();
     final Map<String, KijiFreshnessPolicy> usesOwnDataRequest =
@@ -178,84 +320,13 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         usesOwnDataRequest.put(key, policies.get(key));
       }
     }
-    final Future<KijiRowData> clientData = (usesClientDastaRequest.size() != 0) ?
-        executor.submit(new Callable<KijiRowData>() {
-          public KijiRowData call() throws IOException {
-            return mReader.get(eid, dataRequest);
-          }
-        }) : null;
-    final List<Future<Boolean>> futures = Lists.newArrayList();
-    if (usesClientDataRequest.size() != 0) {
-      for (final String key: usesClientDataRequest.keySet()) {
-        final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
-          public Boolean call() {
-            KijiRowData rowData;
-            try {
-              rowData = clientData.get();
-            } catch (InterruptedException ie) {
-              // TODO: Figure out what to actually do here.
-              throw new RuntimeException("interrupted");
-            } catch (ExecutionException ee) {
-              throw new RuntimeException("execution error");
-            }
-            final boolean isFresh = usesClientDataRequest.get(key).isFresh(rowData);
-            if (isFresh) {
-              // If isFresh, return false to indicate a reread is not necessary.
-              return Boolean.FALSE;
-            } else {
-              KijiProducer producer;
-              try {
-                producer = (KijiProducer) ReflectionUtils.newInstance(
-                    Class.forName(mPolicyRecords.get(key).getProducerClass()), null);
-              } catch (ClassNotFoundException cnfe) {
-                throw new RuntimeException(String.format(
-                    "Producer class %s was not found on the classpath",
-                    mPolicyRecords.get(key).getFreshnessPolicyClass()));
-              }
-              // TODO: Does the producer need to be initialized?
-              // TODO: add the context
-              producer.produce(rowData, CONTEXT);
-              // If a producer runs, return true to indicate a reread is necessary.
-              return Boolean.TRUE;
 
-            }
-          }
-        });
-        futures.add(requiresReread);
-      }
-    }
-    for (final String key: usesOwnDataRequest.keySet()) {
-      final Future<Boolean> requiresReread = executor.submit(new Callable<Boolean>() {
-        public Boolean call() throws IOException {
-          final KijiRowData rowData =
-              mReader.get(eid, usesOwnDataRequest.get(key).getDataRequest());
-          final boolean isFresh = usesOwnDataRequest.get(key).isFresh(rowData);
-          if (isFresh) {
-            // If isFresh, return false to indicate a reread is not necessary.
-            return Boolean.FALSE;
-          } else {
-            KijiProducer producer;
-            try {
-              producer = (KijiProducer) ReflectionUtils.newInstance(
-                Class.forName(mPolicyRecords.get(key).getProducerClass()), null);
-            } catch (ClassNotFoundException cnfe) {
-              throw new RuntimeException(String.format(
-                  "Producer class %s was not found on the classpath",
-                  mPolicyRecords.get(key).getFreshnessPolicyClass()));
-            }
-            // TODO: Does the producer need to be initialized?
-            // TODO: add the context
-            producer.produce(rowData, CONTEXT);
-            // If a producer runs, return true to indicate a reread is necessary.
-            return Boolean.TRUE;
-          }
-        }
-      });
-      futures.add(requiresReread);
-    }
+    final Future<KijiRowData> clientData =
+        getClientData(eid, dataRequest, usesClientDataRequest.size());
+    final List<Future<Boolean>> futures =
+        getFutures(usesClientDataRequest, usesOwnDataRequest, clientData, eid);
 
-
-    final Future<Boolean> superFuture = executor.submit(new Callable<Boolean>() {
+    final Future<Boolean> superFuture = mExecutor.submit(new Callable<Boolean>() {
       public Boolean call() throws InterruptedException, ExecutionException{
         boolean retVal = false;
         for (Future<Boolean> future: futures) {
@@ -267,10 +338,8 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       }
     });
 
-    // TODO: setup timeout
-    final long timeOut = 1000;
     try {
-      if (superFuture.get(timeOut, TimeUnit.MILLISECONDS)) {
+      if (superFuture.get(mTimeout, TimeUnit.MILLISECONDS)) {
         return mReader.get(eid, dataRequest);
       } else {
         if (clientData != null) {
@@ -280,10 +349,12 @@ public class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         }
       }
     } catch (InterruptedException ie) {
-      throw new RuntimeException();
-      //TODO: handle exceptions
+      throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
-      throw new RuntimeException();
+      IOException ioe = (IOException) ee.getCause();
+      LOG.warn("");
+      return null;
+      //TODO catch IOExceptions earlier so this can't happen
     } catch (TimeoutException te) {
       return mReader.get(eid, dataRequest);
     }
