@@ -4,6 +4,7 @@ package org.kiji.scoring;
 
 import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiDataRequest;
+import org.kiji.scoring.impl.PolicyContext;
 
 public interface KijiFreshnessPolicy {
   /**
@@ -12,7 +13,7 @@ public interface KijiFreshnessPolicy {
    * @param rowData The KijiRowData to test for freshness.
    * @param return Whether the data is fresh.
    */
-  boolean isFresh(KijiRowData rowData);
+  boolean isFresh(KijiRowData rowData, PolicyContext policyContext);
 
   /**
    * Does this freshness policy operate on the client's requested data, or should it use its own

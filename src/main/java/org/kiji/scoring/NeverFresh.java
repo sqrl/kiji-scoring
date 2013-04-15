@@ -20,6 +20,7 @@ package org.kiji.scoring;
 
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
+import org.kiji.scoring.impl.PolicyContext;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns stale for any KijiRowData.
@@ -28,7 +29,7 @@ public final class NeverFresh implements KijiFreshnessPolicy {
 
   //{@inheritDoc}
   @Override
-  public boolean isFresh(KijiRowData rowData) {
+  public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     return false;
   }
 

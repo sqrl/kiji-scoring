@@ -23,29 +23,32 @@ import java.util.NavigableSet;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
+import org.kiji.scoring.impl.PolicyContext;
 
 /**
- * Created with IntelliJ IDEA. User: aaron Date: 4/10/13 Time: 11:01 AM To change this template use
- * File | Settings | File Templates.
+ * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh if requested data was
+ * modified within a specified number of milliseconds of the current time.
  */
 public final class ShelfLife implements KijiFreshnessPolicy {
-  // TODO: Figure out how we get the column name
-  private KijiColumnName mTargetColumnName;
   private long mShelfLifeMillis = -1;
 
   @Override
-  public boolean isFresh(KijiRowData rowData) {
+  public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
+    final KijiColumnName columnName = policyContext.getAttachedColumn();
     if (mShelfLifeMillis == -1) {
       throw new RuntimeException("Shelf life not set.  Did you call ShelfLife.load()?");
     }
-    if (mTargetColumnName == null) {
+    if (columnName == null) {
       throw new RuntimeException("Target column was not set.");
     }
-    if (!rowData.containsColumn(mTargetColumnName.getFamily(), mTargetColumnName.getQualifier())) {
+    // If the column does not exist in the row data, it is not fresh.
+    if (!rowData.containsColumn(columnName.getFamily(), columnName.getQualifier())) {
       return false;
     }
+
     NavigableSet<Long> timestamps =
-        rowData.getTimestamps(mTargetColumnName.getFamily(), mTargetColumnName.getQualifier());
+        rowData.getTimestamps(columnName.getFamily(), columnName.getQualifier());
+    // If there are no values in the column in the row data, it is not fresh.
     if (timestamps.isEmpty()) {
       return false;
     }
