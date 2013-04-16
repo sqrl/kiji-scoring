@@ -219,9 +219,12 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
           } catch (InterruptedException ie) {
             throw new RuntimeException("Freshening thread interrupted", ie);
           } catch (ExecutionException ee) {
-            final IOException ioe = (IOException) ee.getCause();
-            LOG.warn("Client data could not be retrieved.  Freshness policies which operate against"
-                + "the client data request will not run. " + ioe.getMessage());
+            if (ee.getCause() instanceof IOException) {
+              LOG.warn("Client data could not be retrieved.  Freshness policies which operate against"
+                  + "the client data request will not run. " + ee.getCause().getMessage());
+            } else {
+              throw new RuntimeException(ee.getCause());
+            }
           }
           if (rowData != null) {
             final boolean isFresh = usesClientDataRequest.get(key).isFresh(rowData, policyContext);
@@ -251,7 +254,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         public Boolean call() throws IOException {
           final KijiRowData rowData =
               mReader.get(eid, usesOwnDataRequest.get(key).getDataRequest());
-          final PolicyContext policyContext = new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
+          final PolicyContext policyContext =
+              new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
           final boolean isFresh = usesOwnDataRequest.get(key).isFresh(rowData, policyContext);
           if (isFresh) {
             // If isFresh, return false to indicate that a reread is not necessary.
@@ -355,12 +359,23 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         getFutures(usesClientDataRequest, usesOwnDataRequest, clientData, eid, dataRequest);
 
     final Future<Boolean> superFuture = mExecutor.submit(new Callable<Boolean>() {
-      public Boolean call() throws InterruptedException, ExecutionException{
+      public Boolean call() {
         boolean retVal = false;
         for (Future<Boolean> future: futures) {
           // block on completion of each future and update the return value to be true if any
           // future returns true.
-          retVal = future.get() || retVal;
+          try {
+            retVal = future.get() || retVal;
+          } catch (ExecutionException ee) {
+            if (ee.getCause() instanceof IOException) {
+              LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
+                  + "not run. " + ee.getCause().getMessage());
+            } else {
+              throw new RuntimeException(ee.getCause());
+            }
+          } catch (InterruptedException ie) {
+            throw new RuntimeException("Freshening thread interrupted.", ie);
+          }
         }
         return retVal;
       }
@@ -379,9 +394,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     } catch (InterruptedException ie) {
       throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
-      IOException ioe = (IOException) ee.getCause();
-      LOG.warn("");
-      return null;
+      if (ee.getCause() instanceof RuntimeException) {
+        throw new RuntimeException(ee.getCause());
+      }
+      // This should be unreachable, since superFuture's call method throws nothing but runtime.
+      return mReader.get(eid, dataRequest);
       //TODO catch IOExceptions earlier so this can't happen
     } catch (TimeoutException te) {
       return mReader.get(eid, dataRequest);
