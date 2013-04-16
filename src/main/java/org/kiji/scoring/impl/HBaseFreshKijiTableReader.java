@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -92,18 +91,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     final KijiFreshnessManager manager = new KijiFreshnessManager(table.getKiji());
     // opening a reader retains the table, so we do not need to call retain manually.
     mReader = mTable.openTableReader();
-    final KijiMetaTable metaTable = mTable.getKiji().getMetaTable();
-    final Set<String> keySet = metaTable.keySet(mTable.getName());
-    mPolicyRecords = new HashMap<KijiColumnName, KijiFreshnessPolicyRecord>();
-    // For all keys in the metatable, if those keys are freshness policy entries,
-    // cache them locally.
-    for (String key: keySet) {
-      if (key.startsWith("kiji.scoring.fresh.")) {
-        final String columnName = key.substring(19);
-        mPolicyRecords.put(new KijiColumnName(columnName),
-            manager.retrievePolicy(table.getName(), columnName));
-      }
-    }
+    mPolicyRecords = manager.retrievePolicies(mTable.getName());
     mExecutor = FreshenerThreadPool.getInstance().get();
     mTimeout = timeout;
   }
@@ -114,7 +102,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @param policy The name of the freshness policy class to instantiate.
    * @return An instance of the named policy.
    */
-  private KijiFreshnessPolicy policyForName(String policy) {
+  KijiFreshnessPolicy policyForName(String policy) {
     try {
       return ReflectionUtils.newInstance(
           Class.forName(policy).asSubclass(KijiFreshnessPolicy.class), null);
@@ -130,7 +118,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @param dataRequest the data request for which to find freshness policies.
    * @return A map from column name to KijiFreshnessPolicy.
    */
-  private Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest) {
+  Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest) {
     final Collection<Column> columns = dataRequest.getColumns();
     Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
@@ -162,15 +150,15 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param eid The EntityId specified by the client's call to get().
    * @param dataRequest The client's data request.
-   * @param requiresClientDataRequest The number of freshness policies that use the client's data
-   * request to test for freshness.
+   * @param requiresClientDataRequest whether the client's data request is required for any
+   *   freshness policies.
    * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
    *   freshness policies require the user's requested data.
    */
-  private Future<KijiRowData> getClientData(
-      final EntityId eid, final KijiDataRequest dataRequest, int requiresClientDataRequest) {
+  Future<KijiRowData> getClientData(
+      final EntityId eid, final KijiDataRequest dataRequest, boolean requiresClientDataRequest) {
     Future<KijiRowData> clientData = null;
-    if (requiresClientDataRequest != 0) {
+    if (requiresClientDataRequest) {
       clientData = mExecutor.submit(new Callable<KijiRowData>() {
         public KijiRowData call() throws IOException {
           return mReader.get(eid, dataRequest);
@@ -186,7 +174,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @param producer The name of the producer class to instantiate.
    * @return An instance of the named producer.
    */
-  private KijiProducer producerForName(String producer) {
+  KijiProducer producerForName(String producer) {
     try {
       //TODO: instead of null, configure with a Configuration appropriate for a freshening producer?
       return ReflectionUtils.newInstance(
@@ -211,7 +199,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @return A list of Future&lt;Boolean&gt; representing the need to reread data from the table
    *   to include producer output after freshening.
    */
-  private List<Future<Boolean>> getFutures(
+  List<Future<Boolean>> getFutures(
       final Map<KijiColumnName, KijiFreshnessPolicy> usesClientDataRequest,
       final Map<KijiColumnName, KijiFreshnessPolicy> usesOwnDataRequest,
       final Future<KijiRowData> clientData,
@@ -289,33 +277,6 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     return futures;
   }
 
-
-  /**
-   * Executes isFresh on all freshness policies according to their various data requests.
-   * Unfinished because the roadmap changed and this method is no longer useful.
-   *
-  private Map<String, Boolean> checkFreshness(
-      Map<String, KijiFreshnessPolicy> policies,
-      KijiDataRequest dataRequest) {
-    Map<String, Boolean> freshness = new HashMap();
-    Map<String, KijiFreshnessPolicy> deferred = new HashMap();
-    for (Map.Entry<String, KijiFreshnessPolicy> entry: policies) {
-      if (entry.getValue().shouldUseClientDataRequest()) {
-        // defer execution and run this later along with other defered isFresh calls against the
-        // user data request
-        deferred.put(entry.getKey(), entry.getValue());
-      } else {
-        final boolean fresh =
-          entry.getValue().isFresh(mReader.get(entry.getValue().getDataRequest));
-        freshness.put(entry.getKey(), fresh);
-      }
-    }
-    final KijiRowData clientData = mReader.get(eid, dataRequest);
-    for (Map.Entry<String, KijiFreshnesPolicy> entry: deferred) {
-      freshness.put(entry.getKey(), entry.getValue().isFresh(clientData));
-    }
-  }*/
-
   /** {@inheritDoc} */
   @Override
   public KijiRowData get(final EntityId eid, final KijiDataRequest dataRequest) throws IOException {
@@ -340,7 +301,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     }
 
     final Future<KijiRowData> clientData =
-        getClientData(eid, dataRequest, usesClientDataRequest.size());
+        getClientData(eid, dataRequest, usesClientDataRequest.size() > 0);
     final List<Future<Boolean>> futures =
         getFutures(usesClientDataRequest, usesOwnDataRequest, clientData, eid, dataRequest);
 

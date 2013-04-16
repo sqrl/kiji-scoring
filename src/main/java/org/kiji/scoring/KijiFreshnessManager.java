@@ -21,9 +21,14 @@ package org.kiji.scoring;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.Kiji;
+import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiMetaTable;
 
 /**
@@ -60,7 +65,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @throws IOException if there is an error saving the freshness policy or if the table is not
    * found.
    */
-  public void storeFreshness(String tableName, String columnName,
+  public void storePolicy(String tableName, String columnName,
       Class<KijiProducer> producerClass, KijiFreshnessPolicy policy) throws IOException {
     // write to the meta table.  Is the meta table max versions = 1?
     // TODO: this
@@ -79,8 +84,30 @@ public final class KijiFreshnessManager implements Closeable {
    */
   public KijiFreshnessPolicyRecord retrievePolicy(
       String tableName, String columnName) throws IOException {
-    // TODO: this
+    final byte[] record = mMetaTable.getValue(tableName, "kiji.scoring.fresh." + columnName);
+    // TODO parse the record
     return null;
+  }
+
+  /**
+   * Retrieves all freshness policy records for a table.  Will return null if there are no freshness
+   * policies registered for that table.
+   *
+   * @param tableName the table name.
+   * @return a List of avro KijiFreshnessPolicyRecords.
+   * @throws IOException if an error occurs while reading from the metatable.
+   */
+  public Map<KijiColumnName, KijiFreshnessPolicyRecord> retrievePolicies(String tableName) throws IOException {
+    final Set<String> keySet = mMetaTable.keySet(tableName);
+    final Map<KijiColumnName, KijiFreshnessPolicyRecord> records =
+        new HashMap<KijiColumnName, KijiFreshnessPolicyRecord>();
+    for (String key: keySet) {
+      if (key.startsWith("kiji.scoring.fresh.")) {
+        final String columnName = key.substring(19);
+        records.put(new KijiColumnName(columnName), retrievePolicy(tableName, columnName));
+      }
+    }
+    return records;
   }
 
   /**
@@ -91,7 +118,7 @@ public final class KijiFreshnessManager implements Closeable {
    * "family" for a map family.
    * @throws IOException if an error occurs while deregistering in the metatable.
    */
-  public void removeFreshness(String tableName, String columnName) throws IOException {
+  public void removePolicy(String tableName, String columnName) throws IOException {
     mMetaTable.removeValues(tableName, columnName);
   }
 

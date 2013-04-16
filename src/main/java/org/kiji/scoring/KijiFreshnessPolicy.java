@@ -49,7 +49,8 @@ public interface KijiFreshnessPolicy {
 
   /**
    * Custom data request required to fulfill
-   * {@link KijiFreshnessPolicy#isFresh(org.kiji.schema.KijiRowData)} isFresh(KijiRowData)} if the
+   * {@link KijiFreshnessPolicy#isFresh(org.kiji.schema.KijiRowData,
+   * org.kiji.scoring.impl.PolicyContext)} isFresh(KijiRowData)} if the
    * client's data request is insufficient.
    *
    * @return The custom data request.
