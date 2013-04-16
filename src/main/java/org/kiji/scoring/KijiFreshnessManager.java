@@ -66,7 +66,8 @@ public final class KijiFreshnessManager implements Closeable {
    * found.
    */
   public void storePolicy(String tableName, String columnName,
-      Class<KijiProducer> producerClass, KijiFreshnessPolicy policy) throws IOException {
+      Class<? extends KijiProducer> producerClass, Class<? extends KijiFreshnessPolicy> policy)
+      throws IOException {
     // write to the meta table.  Is the meta table max versions = 1?
     // TODO: this
     //mMetaTable.putValue()

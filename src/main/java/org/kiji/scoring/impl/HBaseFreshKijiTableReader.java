@@ -41,7 +41,6 @@ import org.kiji.schema.EntityId;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiDataRequest.Column;
-import org.kiji.schema.KijiMetaTable;
 import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiRowScanner;
 import org.kiji.schema.KijiTable;
@@ -354,12 +353,57 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /** {@inheritDoc} */
   @Override
   public List<KijiRowData> bulkGet(
-      List<EntityId> eids, KijiDataRequest dataRequest) throws IOException {
-    List<KijiRowData> results = Lists.newArrayList();
-    for (EntityId eid : eids) {
-      results.add(get(eid, dataRequest));
+      List<EntityId> eids, final KijiDataRequest dataRequest) throws IOException {
+    final List<Future<KijiRowData>> futures = Lists.newArrayList();
+    for (final EntityId eid : eids) {
+      final Future<KijiRowData> future = mExecutor.submit(new Callable<KijiRowData>() {
+        public KijiRowData call() throws IOException {
+          return get(eid, dataRequest);
+        }
+      });
+      futures.add(future);
     }
-    return results;
+    final Future<List<KijiRowData>> superDuperFuture =
+        mExecutor.submit(new Callable<List<KijiRowData>>() {
+      public List<KijiRowData> call() {
+        List<KijiRowData> results = Lists.newArrayList();
+        for (Future<KijiRowData> future : futures) {
+          try {
+            results.add(future.get());
+          } catch (InterruptedException ie) {
+            throw new RuntimeException("Freshening thread interrupted.", ie);
+          } catch (ExecutionException ee) {
+            if (ee.getCause() instanceof IOException) {
+              LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
+                  + "not run. " + ee.getCause().getMessage());
+            } else {
+              throw new RuntimeException(ee.getCause());
+            }
+          }
+        }
+        return results;
+      }
+    });
+
+    final List<KijiRowData> futureResult;
+    try {
+      futureResult = superDuperFuture.get(mTimeout, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException ie) {
+      throw new RuntimeException("Freshening thread interrupted.", ie);
+    } catch (ExecutionException ee) {
+      if (ee.getCause() instanceof RuntimeException) {
+        throw new RuntimeException(ee.getCause());
+      }
+      // This should be unreachable, since superDuperFuture's call method throws nothing but runtime
+      return mReader.bulkGet(eids, dataRequest);
+    } catch (TimeoutException te) {
+      return mReader.bulkGet(eids, dataRequest);
+    }
+    if (futureResult != null) {
+      return futureResult;
+    } else {
+      return mReader.bulkGet(eids, dataRequest);
+    }
   }
 
   /** {@inheritDoc} */

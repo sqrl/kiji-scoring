@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 
+import com.google.common.collect.Lists;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
 import org.junit.Before;
@@ -41,6 +42,7 @@ import org.kiji.schema.EntityId;
 import org.kiji.schema.Kiji;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
+import org.kiji.schema.KijiDataRequestBuilder;
 import org.kiji.schema.KijiMetaTable;
 import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiTable;
@@ -51,7 +53,9 @@ import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
 import org.kiji.scoring.AlwaysFresh;
 import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.NeverFresh;
 import org.kiji.scoring.ShelfLife;
 import org.kiji.scoring.impl.HBaseFreshKijiTableReader;
 
@@ -65,13 +69,15 @@ public class TestHBaseFreshKijiTableReader {
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
   private final static class TestProducer extends KijiProducer {
     public KijiDataRequest getDataRequest() {
-      return null;  //To change body of implemented methods use File | Settings | File Templates.
+      return KijiDataRequest.create("info", "name");
     }
     public String getOutputColumn() {
-      return null;  //To change body of implemented methods use File | Settings | File Templates.
+      return "info:name";
     }
     public void produce(
-        final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {}
+        final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {
+      producerContext.put("new-val");
+    }
   }
 
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
@@ -148,6 +154,20 @@ public class TestHBaseFreshKijiTableReader {
   @Test
   public void testGetPolicies() throws Exception {
     // TODO test this when the manager is ready.
+    final KijiDataRequest request = KijiDataRequest.create("info", "name");
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, NeverFresh.class);
+    manager.storePolicy("user", "info:visits", TestProducer.class, AlwaysFresh.class);
+
+    // Open a new reader to pull in the new freshness policies.
+    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+    assertEquals(2, freshReader.getPolicies(request).size());
+    assertEquals(NeverFresh.class,
+        freshReader.getPolicies(request).get(new KijiColumnName("info", "name")).getClass());
+    assertEquals(AlwaysFresh.class,
+        freshReader.getPolicies(request).get(new KijiColumnName("info", "visits")).getClass());
   }
 
   @Test
@@ -187,7 +207,7 @@ public class TestHBaseFreshKijiTableReader {
     usesClientDataRequest.put(new KijiColumnName("info", "name"), new AlwaysFresh());
     usesOwnDataRequest.put(new KijiColumnName("info", "name"), new TestAlwaysFresh());
 
-    // Get a list of two futures, all are always fresh, so should return false to indicate no
+    // Get a list of two futures, both are always fresh, so should return false to indicate no
     // reread.
     final List<Future<Boolean>> actual2 =
         mFreshReader.getFutures(
@@ -211,11 +231,93 @@ public class TestHBaseFreshKijiTableReader {
 
   @Test
   public void testGetFresh() throws Exception {
-    //TODO: this
+    // TODO test this once the manager is ready.  currently passes because the policies are not
+    // getting attached.
+    final EntityId eid = mTable.getEntityId("foo");
+    final KijiDataRequest request = KijiDataRequest.create("info", "visits");
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, NeverFresh.class);
+    manager.storePolicy("user", "info:visits", TestProducer.class, AlwaysFresh.class);
+
+    // Open a new reader to pull in the new freshness policies. Allow 10 seconds so it is very
+    // unlikely to timeout.
+    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+
+    // freshReader should return the same as regular reader because the data is fresh.
+    assertEquals(
+        mReader.get(eid, request).getMostRecentValue("info", "visits"),
+        freshReader.get(eid, request).getMostRecentValue("info", "visits"));
+    // Value should be unchanged.
+    assertEquals(42L, mReader.get(eid, request).getMostRecentValue("info", "visits"));
   }
 
   @Test
   public void testGetStale() throws Exception {
-    //TODO: this
+    //TODO: test this once the manager is ready and the producer is actually set up.
+    final EntityId eid = mTable.getEntityId("foo");
+    final KijiDataRequest request = KijiDataRequest.create("info", "name");
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, NeverFresh.class);
+    manager.storePolicy("user", "info:visits", TestProducer.class, AlwaysFresh.class);
+
+    // Open a new reader to pull in the new freshness policies.
+    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+
+    // freshReader should return different from regular reader because the data is stale.
+    assertEquals(
+        mReader.get(eid, request).getMostRecentValue("info", "name"),
+        freshReader.get(eid, request).getMostRecentValue("info", "name"));
+    // The new value should have been written.
+    assertEquals(
+        "new-val", mReader.get(eid, request).getMostRecentValue("info", "name"));
+  }
+
+  @Test
+  public void testBulkGet() throws Exception {
+    //TODO: test this once the manager is reader and the producer is actually set up.
+    // currently passes because freshness policies are not stored.
+    final EntityId eidFoo = mTable.getEntityId("foo");
+    final EntityId eidBar = mTable.getEntityId("bar");
+    final KijiDataRequest freshRequest = KijiDataRequest.create("info", "visits");
+    final KijiDataRequest staleRequest = KijiDataRequest.create("info", "name");
+    final KijiDataRequestBuilder builder = KijiDataRequest.builder();
+    builder.newColumnsDef().add("info", "visits").add("info", "name");
+    final KijiDataRequest completeRequest = builder.build();
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, NeverFresh.class);
+    manager.storePolicy("user", "info:visits", TestProducer.class, AlwaysFresh.class);
+
+    // Open a new reader to pull in the new freshness policies.
+    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+
+    // Get the old data for comparison
+    final List<KijiRowData> oldData =
+        mReader.bulkGet(Lists.newArrayList(eidFoo, eidBar), completeRequest);
+
+    // Run a request which should return fresh.  nothing should be written.
+    final List<KijiRowData> newData =
+        freshReader.bulkGet(Lists.newArrayList(eidFoo, eidBar), freshRequest);
+    assertEquals(
+        oldData.get(0).getMostRecentValue("info", "visits"),
+        newData.get(0).getMostRecentValue("info", "visits"));
+    assertEquals(
+        oldData.get(1).getMostRecentValue("info", "visits"),
+        newData.get(1).getMostRecentValue("info", "visits"));
+
+    // Run a request which should return stale.  data should be written.
+    final List<KijiRowData> newData2 =
+        freshReader.bulkGet(Lists.newArrayList(eidFoo, eidBar), staleRequest);
+    assertEquals(
+        oldData.get(0).getMostRecentValue("info", "name"),
+        newData2.get(0).getMostRecentValue("info", "name"));
+    assertEquals(
+        oldData.get(1).getMostRecentValue("info", "name"),
+        newData2.get(1).getMostRecentValue("info", "name"));
   }
 }
