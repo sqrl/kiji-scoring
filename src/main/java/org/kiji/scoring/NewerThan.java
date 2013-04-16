@@ -24,7 +24,6 @@ import java.util.NavigableSet;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
-import org.kiji.scoring.impl.PolicyContext;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh if requested data was

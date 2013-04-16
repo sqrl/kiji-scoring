@@ -20,7 +20,6 @@ package org.kiji.scoring;
 
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
-import org.kiji.scoring.impl.PolicyContext;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh for any KijiRowData.

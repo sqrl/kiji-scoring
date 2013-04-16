@@ -49,7 +49,8 @@ import org.kiji.schema.util.ResourceUtils;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.KijiFreshnessPolicyRecord;
+import org.kiji.scoring.PolicyContext;
+import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 /**
  * Implementation of a Fresh Kiji Table Reader for HBase.

@@ -39,7 +39,6 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.scoring.impl.HBaseFreshKijiTableReader;
-import org.kiji.scoring.impl.PolicyContext;
 
 /**
  * Test the behavior of the stock ShelfLife KijiFreshnessPolicy.

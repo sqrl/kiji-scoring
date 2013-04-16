@@ -19,6 +19,7 @@
 
 package org.kiji.scoring;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,10 +27,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.avro.io.DirectBinaryEncoder;
+
+import org.apache.avro.specific.SpecificDatumWriter;
+
+import org.apache.avro.io.BinaryEncoder;
+
+import org.apache.avro.io.Encoder;
+
+import org.apache.avro.io.DatumWriter;
+
+import org.kiji.schema.KijiTableNotFoundException;
+
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.Kiji;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiMetaTable;
+import org.kiji.schema.util.ProtocolVersion;
+import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 /**
  * This class is responsible for storing, retrieving and deleting freshness policies from a Kiji's
@@ -39,6 +54,18 @@ import org.kiji.schema.KijiMetaTable;
  * when finished with this class.</p>
  */
 public final class KijiFreshnessManager implements Closeable {
+  /** The minimum freshness version supported by this version of the KijiFreshnessManager. */
+  private static final ProtocolVersion MIN_FRESHNESS_RECORD_VER =
+      ProtocolVersion.parse("policyrecord-0.1");
+  /** Maximum freshness version supported by this version of the KijiFreshnessManager. */
+  private static final ProtocolVersion MAX_FRESHNESS_RECORD_VER =
+      ProtocolVersion.parse("policyrecord-0.1");
+  /** The freshness version that will be installed by this version of the KijiFreshnessManager. */
+  private static final ProtocolVersion CUR_FRESHNESS_RECORD_VER = MAX_FRESHNESS_RECORD_VER;
+
+  /** The prefix we use for freshness policies stored in a meta table. */
+  private static final String METATABLE_KEY_PREFIX = "kiji.scoring";
+
   /** The backing metatable. */
   private KijiMetaTable mMetaTable;
 
@@ -66,11 +93,25 @@ public final class KijiFreshnessManager implements Closeable {
    * found.
    */
   public void storePolicy(String tableName, String columnName,
-      Class<? extends KijiProducer> producerClass, Class<? extends KijiFreshnessPolicy> policy)
+      Class<? extends KijiProducer> producerClass, KijiFreshnessPolicy policy)
       throws IOException {
-    // write to the meta table.  Is the meta table max versions = 1?
-    // TODO: this
-    //mMetaTable.putValue()
+    if (!mMetaTable.tableExists(tableName)) {
+      throw new KijiTableNotFoundException("Couldn't find table: " + tableName);
+    }
+    // This code will throw an invalid name if there's something wrong with this columnName string.
+    KijiColumnName kcn = new KijiColumnName(columnName);
+    //TODO(Scoring-10): Check the column name against the current version of the table.
+    KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
+        .setVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
+        .setProducerClass(producerClass.getCanonicalName())
+        .setFreshnessPolicyClass(policy.getClass().getCanonicalName())
+        .setFreshnessPolicyState(policy.store())
+        .build();
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    DatumWriter<KijiFreshnessPolicyRecord> writer =
+        new SpecificDatumWriter<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
+    Encoder encoder = new DirectBinaryEncoder
+    mMetaTable.putValue(tableName, getMetaTableKey(tableName, columnName), )
   }
 
   /**
@@ -98,7 +139,8 @@ public final class KijiFreshnessManager implements Closeable {
    * @return a List of avro KijiFreshnessPolicyRecords.
    * @throws IOException if an error occurs while reading from the metatable.
    */
-  public Map<KijiColumnName, KijiFreshnessPolicyRecord> retrievePolicies(String tableName) throws IOException {
+  public Map<KijiColumnName, KijiFreshnessPolicyRecord> retrievePolicies(String tableName)
+      throws IOException {
     final Set<String> keySet = mMetaTable.keySet(tableName);
     final Map<KijiColumnName, KijiFreshnessPolicyRecord> records =
         new HashMap<KijiColumnName, KijiFreshnessPolicyRecord>();
@@ -130,5 +172,12 @@ public final class KijiFreshnessManager implements Closeable {
    */
   public void close() throws IOException {
     mMetaTable.close();
+  }
+
+  /**
+   * Helper method that constructs a meta table key for a table name and column name.
+   */
+  private String getMetaTableKey(String tableName, String columnName) {
+    return METATABLE_KEY_PREFIX + "." + tableName + "." + columnName;
   }
 }

@@ -20,7 +20,6 @@ package org.kiji.scoring;
 
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
-import org.kiji.scoring.impl.PolicyContext;
 
 /**
  * The interface for freshness policies. Clients may implement this interface to create their own

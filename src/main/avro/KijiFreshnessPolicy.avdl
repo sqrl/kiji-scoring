@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-@namespace("org.kiji.scoring")
+@namespace("org.kiji.scoring.avro")
 /**
  * Avro records for storing KjiiFreshnessPolicy entries.
  */
@@ -27,10 +27,13 @@ protocol KijiFreshnessPolicyRecords {
    * Record that encapsulates everything needed to perform freshening.  Stored in a KijiMetaTable.
    */
   record KijiFreshnessPolicyRecord {
-    /** Class of the producer to run if data is stale. */
+    /** Version string, for future compatibility. */
+    string record_version;
+
+    /** Fully qualified class of the producer to run if data is stale. */
     string producer_class;
 
-    /** Class of the KijiFreshnessPolicy to use to check for freshness. */
+    /** Fully qualified class of the KijiFreshnessPolicy to use to check for freshness. */
     string freshness_policy_class;
 
     /** State of the KijiFreshnessPolicy to initialize the policy after creation. */

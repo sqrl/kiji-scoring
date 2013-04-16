@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kiji.scoring.impl;
+package org.kiji.scoring;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -25,6 +25,7 @@ import org.kiji.schema.KijiDataRequest;
 
 /**
  * Context passed to KijiFreshnessPolicy instances to provide access to outside data.
+ * TODO: Convert to an interface to hide implementation details/construction.
  */
 public final class PolicyContext {
 

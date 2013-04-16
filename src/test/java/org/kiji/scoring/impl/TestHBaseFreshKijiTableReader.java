@@ -56,8 +56,8 @@ import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.NeverFresh;
+import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.ShelfLife;
-import org.kiji.scoring.impl.HBaseFreshKijiTableReader;
 
 /**
  * Created with IntelliJ IDEA. User: aaron Date: 4/15/13 Time: 4:04 PM To change this template use
