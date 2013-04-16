@@ -102,16 +102,18 @@ public final class KijiFreshnessManager implements Closeable {
     KijiColumnName kcn = new KijiColumnName(columnName);
     //TODO(Scoring-10): Check the column name against the current version of the table.
     KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
-        .setVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
+        .setRecordVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
         .setProducerClass(producerClass.getCanonicalName())
         .setFreshnessPolicyClass(policy.getClass().getCanonicalName())
         .setFreshnessPolicyState(policy.store())
         .build();
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    // Temporarily disabled to get compilation working.
+/*    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     DatumWriter<KijiFreshnessPolicyRecord> writer =
         new SpecificDatumWriter<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
     Encoder encoder = new DirectBinaryEncoder
     mMetaTable.putValue(tableName, getMetaTableKey(tableName, columnName), )
+*/
   }
 
   /**
