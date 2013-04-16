@@ -91,7 +91,6 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     for (String key: keySet) {
       if (key.startsWith("kiji.scoring.fresh.")) {
         final String columnName = key.substring(19);
-        // TODO: convert this byte[] to an avro record
         mPolicyRecords.put(new KijiColumnName(columnName), manager.retrievePolicy(table.getName(), columnName));
       }
     }
@@ -153,16 +152,15 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param eid The EntityId specified by the client's call to get().
    * @param dataRequest The client's data request.
-   * @param size The number of freshness policies that use the client's data request to test for
+   * @param requiresClientDataRequest The number of freshness policies that use the client's data request to test for
    *   freshness.
    * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
    *   freshness policies require the user's requested data.
    */
   private Future<KijiRowData> getClientData(
-      final EntityId eid, final KijiDataRequest dataRequest, int size) {
+      final EntityId eid, final KijiDataRequest dataRequest, int requiresClientDataRequest) {
     Future<KijiRowData> clientData = null;
-    //TODO rename size to something more appropriate.
-    if (size != 0) {
+    if (requiresClientDataRequest != 0) {
       clientData = mExecutor.submit(new Callable<KijiRowData>() {
         public KijiRowData call() throws IOException {
           return mReader.get(eid, dataRequest);
@@ -305,31 +303,6 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     }
   }*/
 
-  // TODO: use helper methods to separate workflow elements
-  // One plan:
-  // 1) get the freshness policy(ies) from the cache
-  // 2) check if the freshness policy uses the client data request
-  // 3) issue the appropriate data request
-  // 4) call freshnessPolicy.isFresh()
-  // 5) if (isFresh && shouldUseClientDataRequest) return to user
-  //    if (isFresh && !shouldUse) send the user request to the table and return
-  //    if (!isFresh) run producer then send user request to table and return
-  // Another plan:
-  // 1) get the freshness policies from the cache
-  // 2) branch threads for each policy
-  // 3) each thread checks for freshness
-  // 4) each thread conditionally runs a producer
-  // 5) all threads finish or the timeout occurs, ask each thread for shouldReread(),
-  //      if any return true, read from the table and return
-
-  // 1) check if any freshness policy uses the client data request
-  // 2) if one does, start a future to get that data
-  // 3) Start a future for each freshness policy that requires the client data.
-  // 4) start a future for each freshness policy that uses its own data request
-  //    all futures except the first return a Boolean for whether a reread is required.  If any
-  //    future has not returned when timeout occurs, assume reread.
-
-
   /** {@inheritDoc} */
   @Override
   public KijiRowData get(final EntityId eid, final KijiDataRequest dataRequest) throws IOException {
@@ -399,7 +372,6 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       }
       // This should be unreachable, since superFuture's call method throws nothing but runtime.
       return mReader.get(eid, dataRequest);
-      //TODO catch IOExceptions earlier so this can't happen
     } catch (TimeoutException te) {
       return mReader.get(eid, dataRequest);
     }
@@ -407,9 +379,13 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
 
   /** {@inheritDoc} */
   @Override
-  public List<KijiRowData> bulkGet(List<EntityId> eids, KijiDataRequest dataRequest) {
-    // TODO: this
-    return null;
+  public List<KijiRowData> bulkGet(
+      List<EntityId> eids, KijiDataRequest dataRequest) throws IOException {
+    List<KijiRowData> results = Lists.newArrayList();
+    for (EntityId eid : eids) {
+      results.add(get(eid, dataRequest));
+    }
+    return results;
   }
 
   /** {@inheritDoc} */
