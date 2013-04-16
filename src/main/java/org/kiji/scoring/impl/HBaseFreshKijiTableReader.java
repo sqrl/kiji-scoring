@@ -28,8 +28,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.google.common.collect.Lists;
 import org.apache.hadoop.util.ReflectionUtils;
@@ -53,6 +53,9 @@ import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.KijiFreshnessPolicyRecord;
 
+/**
+ * Implementation of a Fresh Kiji Table Reader for HBase.
+ */
 @ApiAudience.Private
 public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   private static final Logger LOG = LoggerFactory.getLogger(HBaseFreshKijiTableReader.class);
@@ -78,6 +81,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /**
    * Creates a new <code>HBaseFreshKijiTableReader</code> instance that sends read requests
    * to an HBase table and performs freshening on the returned data.
+   *
+   * @param table the table that will be read/scored.
+   * @param timeout the maximum number of milliseconds to spend trying to score data. If the
+   * process times out, stale or partially-scored data may be returned by {@link get()} calls.
+   * @throws IOException if an error occurs while processing the table or freshness policy.
    */
   public HBaseFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
     mTable = table;
@@ -87,11 +95,13 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     final KijiMetaTable metaTable = mTable.getKiji().getMetaTable();
     final Set<String> keySet = metaTable.keySet(mTable.getName());
     mPolicyRecords = new HashMap<KijiColumnName, KijiFreshnessPolicyRecord>();
-    // For all keys in the metatable, if those keys are freshness policy entries, cache them locally.
+    // For all keys in the metatable, if those keys are freshness policy entries,
+    // cache them locally.
     for (String key: keySet) {
       if (key.startsWith("kiji.scoring.fresh.")) {
         final String columnName = key.substring(19);
-        mPolicyRecords.put(new KijiColumnName(columnName), manager.retrievePolicy(table.getName(), columnName));
+        mPolicyRecords.put(new KijiColumnName(columnName),
+            manager.retrievePolicy(table.getName(), columnName));
       }
     }
     mExecutor = FreshenerThreadPool.getInstance().get();
@@ -152,8 +162,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param eid The EntityId specified by the client's call to get().
    * @param dataRequest The client's data request.
-   * @param requiresClientDataRequest The number of freshness policies that use the client's data request to test for
-   *   freshness.
+   * @param requiresClientDataRequest The number of freshness policies that use the client's data
+   * request to test for freshness.
    * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
    *   freshness policies require the user's requested data.
    */
@@ -197,6 +207,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *   data requests to fulfill isFresh() calls.
    * @param clientData A Future&lt;KijiRowData&gt; representing the data requested by the client
    * @param eid The EntityId specified by the client's call to get().
+   * @param clientRequest the client's original request.
    * @return A list of Future&lt;Boolean&gt; representing the need to reread data from the table
    *   to include producer output after freshening.
    */
@@ -211,14 +222,16 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
         public Boolean call() {
           KijiRowData rowData = null;
-          final PolicyContext policyContext = new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
+          final PolicyContext policyContext =
+              new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
           try {
             rowData = clientData.get();
           } catch (InterruptedException ie) {
             throw new RuntimeException("Freshening thread interrupted", ie);
           } catch (ExecutionException ee) {
             if (ee.getCause() instanceof IOException) {
-              LOG.warn("Client data could not be retrieved.  Freshness policies which operate against"
+              LOG.warn("Client data could not be retrieved.  "
+                  + "Freshness policies which operate against "
                   + "the client data request will not run. " + ee.getCause().getMessage());
             } else {
               throw new RuntimeException(ee.getCause());

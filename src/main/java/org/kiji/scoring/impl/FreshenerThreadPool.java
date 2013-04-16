@@ -25,13 +25,19 @@ import java.util.concurrent.Executors;
  * Singleton class providing a cached thread pool for Freshening table reads.
  */
 public final class FreshenerThreadPool {
-  private static volatile FreshenerThreadPool mPool;
+  private static FreshenerThreadPool mPool;
   private final ExecutorService mExecutor;
 
+  /** Private constructor. */
   private FreshenerThreadPool() {
     mExecutor = Executors.newCachedThreadPool();
   }
 
+  /**
+   * Gets the singleton instance, creating it if necessary.
+   *
+   * @return The singletone instance.
+   */
   public static FreshenerThreadPool getInstance() {
     if (mPool == null) {
       synchronized (FreshenerThreadPool.class) {
@@ -43,11 +49,12 @@ public final class FreshenerThreadPool {
     return mPool;
   }
 
+  /**
+   * Gets the execution engine for this singleton.
+   *
+   * @return The singleton's executor.
+   */
   public ExecutorService get() {
-    if (mExecutor != null) {
-      return mExecutor;
-    } else {
-      return getInstance().get();
-    }
+    return mExecutor;
   }
 }
