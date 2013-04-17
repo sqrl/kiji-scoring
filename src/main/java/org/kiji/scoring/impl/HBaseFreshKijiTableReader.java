@@ -47,6 +47,7 @@ import org.kiji.schema.KijiTable;
 import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.util.ResourceUtils;
 import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.KijiFreshProducerContext;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.PolicyContext;
@@ -178,7 +179,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     try {
       //TODO: instead of null, configure with a Configuration appropriate for a freshening producer?
       return ReflectionUtils.newInstance(
-        Class.forName(producer).asSubclass(KijiProducer.class), null);
+        Class.forName(producer).asSubclass(KijiProducer.class), mTable.getKiji().getConf());
     } catch (ClassNotFoundException cnfe) {
       throw new RuntimeException(String.format(
           "Producer class %s was not found on the classpath", producer));
@@ -262,9 +263,14 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
           } else {
             final KijiProducer producer =
                 producerForName(mPolicyRecords.get(key).getProducerClass());
-            // TODO: Does the producer need to be initialized?
-            // TODO: add the context
-            // producer.produce(rowData, CONTEXT);
+            // TODO: setup the context
+            // TODO: what column does the producer output to? the one the policy is attached to?
+            /*
+            final KijiFreshProducerContext context = KijiFreshProducerContext.create(mTable, );
+            producer.setup(context);
+            producer.produce(mReader.get(eid, producer.getDataRequest()), context);
+            producer.cleanup(context);
+            */
             // If a producer runs, return true to indicate that a reread is necessary.  This assumes
             // the producer will write to the requested cells, eventually it may be appropriate
             // to actually check if this is true.
