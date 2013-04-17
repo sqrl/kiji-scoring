@@ -39,6 +39,7 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.scoring.impl.HBaseFreshKijiTableReader;
+import org.kiji.scoring.impl.InternalPolicyContext;
 
 /**
  * Test the behavior of the stock ShelfLife KijiFreshnessPolicy.
@@ -89,7 +90,7 @@ public class TestShelfLife {
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
     final KijiRowData rowData = mReader.get(eid, request);
     final PolicyContext context =
-        new PolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
+        new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
     final ShelfLife policy = new ShelfLife();
     policy.load(String.valueOf(Long.MAX_VALUE));
 

@@ -120,8 +120,8 @@ public final class KijiFreshnessManager implements Closeable {
     //TODO(Scoring-10): Check the column name against the current version of the table.
     KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
         .setRecordVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
-        .setProducerClass(producerClass.getCanonicalName())
-        .setFreshnessPolicyClass(policy.getClass().getCanonicalName())
+        .setProducerClass(producerClass.getName())
+        .setFreshnessPolicyClass(policy.getClass().getName())
         .setFreshnessPolicyState(policy.store())
         .build();
 
@@ -194,6 +194,8 @@ public final class KijiFreshnessManager implements Closeable {
 
   /**
    * Helper method that constructs a meta table key for a column name.
+   * @param columnName the column for which to get a MetaTable key.
+   * @return the MetaTable key for the given column.
    */
   private String getMetaTableKey(String columnName) {
     return METATABLE_KEY_PREFIX + columnName;

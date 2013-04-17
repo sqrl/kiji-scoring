@@ -16,30 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kiji.scoring;
-
-import org.apache.hadoop.conf.Configuration;
-
-import org.kiji.schema.KijiColumnName;
-import org.kiji.schema.KijiDataRequest;
 
 /**
- * Context passed to KijiFreshnessPolicy instances to provide access to outside data.
+ * Package containing private implementation classes for KijiScoring.
+ * TODO expand
  */
-public interface PolicyContext {
-
-  /**
-   * @return The KijiDataRequest issued by the client for this
-   */
-  KijiDataRequest getUserRequest();
-
-  /**
-   * @return The name of the column to which the freshness policy is attached.
-   */
-  KijiColumnName getAttachedColumn();
-
-  /**
-   * @return The Configuration associated with the Kiji instance for this context.
-   */
-  Configuration getConfiguration();
-}
+package org.kiji.scoring.impl;

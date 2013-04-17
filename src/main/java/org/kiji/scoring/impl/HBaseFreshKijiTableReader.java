@@ -177,7 +177,6 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    */
   KijiProducer producerForName(String producer) {
     try {
-      //TODO: instead of null, configure with a Configuration appropriate for a freshening producer?
       return ReflectionUtils.newInstance(
         Class.forName(producer).asSubclass(KijiProducer.class), mTable.getKiji().getConf());
     } catch (ClassNotFoundException cnfe) {
@@ -209,10 +208,10 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     final List<Future<Boolean>> futures = Lists.newArrayList();
     for (final KijiColumnName key: usesClientDataRequest.keySet()) {
       final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
-        public Boolean call() {
+        public Boolean call() throws IOException {
           KijiRowData rowData = null;
           final PolicyContext policyContext =
-              new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
+              new InternalPolicyContext(clientRequest, key, mTable.getKiji().getConf());
           try {
             rowData = clientData.get();
           } catch (InterruptedException ie) {
@@ -234,9 +233,13 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
             } else {
               final KijiProducer producer =
                   producerForName(mPolicyRecords.get(key).getProducerClass());
-              // TODO: Does the producer need to be initialized?
-              // TODO: add the context
-              // producer.produce(rowData, CONTEXT);
+
+              final KijiFreshProducerContext context =
+                  KijiFreshProducerContext.create(mTable, key, eid);
+              producer.setup(context);
+              producer.produce(mReader.get(eid, producer.getDataRequest()), context);
+              producer.cleanup(context);
+
               // If a producer runs, return true to indicate a reread is necessary.  This assumes
               // the producer will write to the requested cells, eventually it may be appropriate
               // to actually check if this is true.
@@ -255,7 +258,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
           final KijiRowData rowData =
               mReader.get(eid, usesOwnDataRequest.get(key).getDataRequest());
           final PolicyContext policyContext =
-              new PolicyContext(clientRequest, key, mTable.getKiji().getConf());
+              new InternalPolicyContext(clientRequest, key, mTable.getKiji().getConf());
           final boolean isFresh = usesOwnDataRequest.get(key).isFresh(rowData, policyContext);
           if (isFresh) {
             // If isFresh, return false to indicate that a reread is not necessary.
@@ -263,14 +266,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
           } else {
             final KijiProducer producer =
                 producerForName(mPolicyRecords.get(key).getProducerClass());
-            // TODO: setup the context
-            // TODO: what column does the producer output to? the one the policy is attached to?
-            /*
-            final KijiFreshProducerContext context = KijiFreshProducerContext.create(mTable, );
+            final KijiFreshProducerContext context =
+                KijiFreshProducerContext.create(mTable, key, eid);
             producer.setup(context);
             producer.produce(mReader.get(eid, producer.getDataRequest()), context);
             producer.cleanup(context);
-            */
             // If a producer runs, return true to indicate that a reread is necessary.  This assumes
             // the producer will write to the requested cells, eventually it may be appropriate
             // to actually check if this is true.
