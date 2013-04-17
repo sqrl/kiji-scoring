@@ -23,26 +23,23 @@ import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.avro.io.DirectBinaryEncoder;
-
-import org.apache.avro.specific.SpecificDatumWriter;
-
-import org.apache.avro.io.BinaryEncoder;
-
-import org.apache.avro.io.Encoder;
-
+import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
-
-import org.kiji.schema.KijiTableNotFoundException;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
 
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.Kiji;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiMetaTable;
+import org.kiji.schema.KijiTableNotFoundException;
 import org.kiji.schema.util.ProtocolVersion;
 import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
@@ -50,8 +47,8 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  * This class is responsible for storing, retrieving and deleting freshness policies from a Kiji's
  * metatable.
  *
- * <p>Since this class maintains a connection to the metatable clients should call {@link close()}
- * when finished with this class.</p>
+ * <p>Instance of class are not thread-safe. Since this class maintains a connection to the
+ * metatable clients should call {@link close()} when finished with this class.</p>
  */
 public final class KijiFreshnessManager implements Closeable {
   /** The minimum freshness version supported by this version of the KijiFreshnessManager. */
@@ -64,10 +61,22 @@ public final class KijiFreshnessManager implements Closeable {
   private static final ProtocolVersion CUR_FRESHNESS_RECORD_VER = MAX_FRESHNESS_RECORD_VER;
 
   /** The prefix we use for freshness policies stored in a meta table. */
-  private static final String METATABLE_KEY_PREFIX = "kiji.scoring";
+  private static final String METATABLE_KEY_PREFIX = "kiji.scoring.fresh.";
 
   /** The backing metatable. */
   private KijiMetaTable mMetaTable;
+
+  /** An output stream writer suitable for serializing FreshnessPolicyRecords. */
+  private final ByteArrayOutputStream mOutputStream;
+  /** A datum writer for records. */
+  private final DatumWriter<KijiFreshnessPolicyRecord> mRecordWriter;
+  /** An encoder factory for serializing records. */
+  private final EncoderFactory mEncoderFactory;
+  /** An input stream reader suitable for deserializing FreshnessPolicyRecords. */
+  /** A datum reader for records. */
+  private final DatumReader<KijiFreshnessPolicyRecord> mRecordReader;
+  /** A decoder factory for records. */
+  private final DecoderFactory mDecoderFactory;
 
   /**
    * Default constructor.
@@ -77,6 +86,14 @@ public final class KijiFreshnessManager implements Closeable {
    */
   public KijiFreshnessManager(Kiji kiji) throws IOException {
     mMetaTable = kiji.getMetaTable();
+    // Setup members responsible for serializing/deserializing records.
+    mOutputStream = new ByteArrayOutputStream();
+    mRecordWriter =
+        new SpecificDatumWriter<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
+    mRecordReader =
+        new SpecificDatumReader<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
+    mEncoderFactory = EncoderFactory.get();
+    mDecoderFactory = DecoderFactory.get();
   }
 
   /**
@@ -107,13 +124,12 @@ public final class KijiFreshnessManager implements Closeable {
         .setFreshnessPolicyClass(policy.getClass().getCanonicalName())
         .setFreshnessPolicyState(policy.store())
         .build();
-    // Temporarily disabled to get compilation working.
-/*    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    DatumWriter<KijiFreshnessPolicyRecord> writer =
-        new SpecificDatumWriter<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
-    Encoder encoder = new DirectBinaryEncoder
-    mMetaTable.putValue(tableName, getMetaTableKey(tableName, columnName), )
-*/
+
+    mOutputStream.reset();
+    Encoder encoder = mEncoderFactory.directBinaryEncoder(mOutputStream, null);
+    mRecordWriter.write(record, encoder);
+    mMetaTable.putValue(tableName, getMetaTableKey(columnName),
+        mOutputStream.toByteArray());
   }
 
   /**
@@ -128,9 +144,9 @@ public final class KijiFreshnessManager implements Closeable {
    */
   public KijiFreshnessPolicyRecord retrievePolicy(
       String tableName, String columnName) throws IOException {
-    final byte[] record = mMetaTable.getValue(tableName, "kiji.scoring.fresh." + columnName);
-    // TODO parse the record
-    return null;
+    final byte[] recordBytes = mMetaTable.getValue(tableName, getMetaTableKey(columnName));
+    Decoder decoder = mDecoderFactory.binaryDecoder(recordBytes, null);
+    return mRecordReader.read(null, decoder);
   }
 
   /**
@@ -147,8 +163,8 @@ public final class KijiFreshnessManager implements Closeable {
     final Map<KijiColumnName, KijiFreshnessPolicyRecord> records =
         new HashMap<KijiColumnName, KijiFreshnessPolicyRecord>();
     for (String key: keySet) {
-      if (key.startsWith("kiji.scoring.fresh.")) {
-        final String columnName = key.substring(19);
+      if (key.startsWith(METATABLE_KEY_PREFIX)) {
+        final String columnName = key.substring(METATABLE_KEY_PREFIX.length());
         records.put(new KijiColumnName(columnName), retrievePolicy(tableName, columnName));
       }
     }
@@ -164,7 +180,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @throws IOException if an error occurs while deregistering in the metatable.
    */
   public void removePolicy(String tableName, String columnName) throws IOException {
-    mMetaTable.removeValues(tableName, columnName);
+    mMetaTable.removeValues(tableName, getMetaTableKey(columnName));
   }
 
   /**
@@ -177,9 +193,9 @@ public final class KijiFreshnessManager implements Closeable {
   }
 
   /**
-   * Helper method that constructs a meta table key for a table name and column name.
+   * Helper method that constructs a meta table key for a column name.
    */
-  private String getMetaTableKey(String tableName, String columnName) {
-    return METATABLE_KEY_PREFIX + "." + tableName + "." + columnName;
+  private String getMetaTableKey(String columnName) {
+    return METATABLE_KEY_PREFIX + columnName;
   }
 }
