@@ -74,6 +74,11 @@ public class TestHBaseFreshKijiTableReader {
     }
     public void produce(
         final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {
+      try {
+        Thread.sleep(2000L);
+      } catch (InterruptedException ie) {
+        throw new RuntimeException("TestProducer thread interrupted during produce sleep.");
+      }
       producerContext.put("new-val");
     }
   }
@@ -317,5 +322,24 @@ public class TestHBaseFreshKijiTableReader {
         oldData.get(1).getMostRecentValue("info", "name").equals(
         newData2.get(1).getMostRecentValue("info", "name")));
     assertEquals("new-val", newData2.get(1).getMostRecentValue("info", "name").toString());
+  }
+
+  @Test
+  public void testGetStaleTimeout() throws Exception {
+    final EntityId eid = mTable.getEntityId("foo");
+    final KijiDataRequest request = KijiDataRequest.create("info", "name");
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
+
+    // The fresh reader should return stale data after a timeout.
+    assertEquals(
+        mReader.get(eid, request).getMostRecentValue("info", "name"),
+        mFreshReader.get(eid, request).getMostRecentValue("info", "name"));
+
+    // Wait for the producer to finish then try again.
+    Thread.sleep(3000L);
+    assertEquals("new-val", mReader.get(eid, request).getMostRecentValue("info", "name").toString());
   }
 }
