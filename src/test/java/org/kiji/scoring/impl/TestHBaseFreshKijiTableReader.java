@@ -51,8 +51,12 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
-import org.kiji.scoring.*;
-import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
+import org.kiji.scoring.AlwaysFresh;
+import org.kiji.scoring.KijiFreshnessManager;
+import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.NeverFresh;
+import org.kiji.scoring.PolicyContext;
+import org.kiji.scoring.ShelfLife;
 
 /**
  * Tests HBaseFreshKijiTableReader.
