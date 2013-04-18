@@ -102,6 +102,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param policy The name of the freshness policy class to instantiate.
    * @return An instance of the named policy.
+   *
+   * Package private for testing purposes only, should not be accessed externally.
    */
   KijiFreshnessPolicy policyForName(String policy) {
     try {
@@ -118,6 +120,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param dataRequest the data request for which to find freshness policies.
    * @return A map from column name to KijiFreshnessPolicy.
+   *
+   * Package private for testing purposes only, should not be accessed externally.
    */
   Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest) {
     final Collection<Column> columns = dataRequest.getColumns();
@@ -155,6 +159,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *   freshness policies.
    * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
    *   freshness policies require the user's requested data.
+   *
+   * Package private for testing purposes only, should not be accessed externally.
    */
   Future<KijiRowData> getClientData(
       final EntityId eid, final KijiDataRequest dataRequest, boolean requiresClientDataRequest) {
@@ -174,6 +180,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    *
    * @param producer The name of the producer class to instantiate.
    * @return An instance of the named producer.
+   *
+   * Package private for testing purposes only, should not be accessed externally.
    */
   KijiProducer producerForName(String producer) {
     try {
@@ -198,6 +206,8 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @param clientRequest the client's original request.
    * @return A list of Future&lt;Boolean&gt; representing the need to reread data from the table
    *   to include producer output after freshening.
+   *
+   * Package private for testing purposes only, should not be accessed externally.
    */
   List<Future<Boolean>> getFutures(
       final Map<KijiColumnName, KijiFreshnessPolicy> usesClientDataRequest,

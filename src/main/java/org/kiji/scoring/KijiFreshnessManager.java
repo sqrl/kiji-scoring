@@ -154,7 +154,7 @@ public final class KijiFreshnessManager implements Closeable {
    * policies registered for that table.
    *
    * @param tableName the table name.
-   * @return a List of avro KijiFreshnessPolicyRecords.
+   * @return a Map from KijiColumnNames to attached KijiFreshnessPolicyRecords.
    * @throws IOException if an error occurs while reading from the metatable.
    */
   public Map<KijiColumnName, KijiFreshnessPolicyRecord> retrievePolicies(String tableName)
