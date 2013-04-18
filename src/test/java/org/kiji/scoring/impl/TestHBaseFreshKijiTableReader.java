@@ -51,12 +51,8 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
-import org.kiji.scoring.AlwaysFresh;
-import org.kiji.scoring.KijiFreshnessManager;
-import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFresh;
-import org.kiji.scoring.PolicyContext;
-import org.kiji.scoring.ShelfLife;
+import org.kiji.scoring.*;
+import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 /**
  * Tests HBaseFreshKijiTableReader.
@@ -74,8 +70,22 @@ public class TestHBaseFreshKijiTableReader {
     }
     public void produce(
         final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {
+      producerContext.put("new-val");
+    }
+  }
+
+  /** Dummy &lt;? extends KijiProducer&gt; class for testing */
+  private static final class TestTimeoutProducer extends KijiProducer {
+    public KijiDataRequest getDataRequest() {
+      return KijiDataRequest.create("info", "name");
+    }
+    public String getOutputColumn() {
+      return "info:name";
+    }
+    public void produce(
+        final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {
       try {
-        Thread.sleep(2000L);
+        Thread.sleep(1000L);
       } catch (InterruptedException ie) {
         throw new RuntimeException("TestProducer thread interrupted during produce sleep.");
       }
@@ -331,7 +341,9 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
+    manager.storePolicy("user", "info:name", TestTimeoutProducer.class, new NeverFresh());
+
+    mFreshReader = new HBaseFreshKijiTableReader(mTable, 500);
 
     // The fresh reader should return stale data after a timeout.
     assertEquals(
@@ -339,7 +351,7 @@ public class TestHBaseFreshKijiTableReader {
         mFreshReader.get(eid, request).getMostRecentValue("info", "name"));
 
     // Wait for the producer to finish then try again.
-    Thread.sleep(3000L);
+    Thread.sleep(1000L);
     assertEquals("new-val", mReader.get(eid, request).getMostRecentValue("info", "name").toString());
   }
 }
