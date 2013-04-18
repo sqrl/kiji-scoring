@@ -65,7 +65,7 @@ public class TestHBaseFreshKijiTableReader {
   private static final Logger LOG = LoggerFactory.getLogger(TestHBaseFreshKijiTableReader.class);
 
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
-  private static final class TestProducer extends KijiProducer {
+  public static final class TestProducer extends KijiProducer {
     public KijiDataRequest getDataRequest() {
       return KijiDataRequest.create("info", "name");
     }
@@ -79,7 +79,7 @@ public class TestHBaseFreshKijiTableReader {
   }
 
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
-  private static final class TestTimeoutProducer extends KijiProducer {
+  public static final class TestTimeoutProducer extends KijiProducer {
     public KijiDataRequest getDataRequest() {
       return KijiDataRequest.create("info", "name");
     }

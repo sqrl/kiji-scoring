@@ -1,0 +1,243 @@
+package org.kiji.scoring.impl;
+
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import com.google.common.collect.Lists;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.kiji.mapreduce.produce.KijiProducer;
+import org.kiji.mapreduce.produce.ProducerContext;
+import org.kiji.schema.EntityId;
+import org.kiji.schema.Kiji;
+import org.kiji.schema.KijiDataRequest;
+import org.kiji.schema.KijiRowData;
+import org.kiji.schema.KijiTable;
+import org.kiji.schema.KijiTableReader;
+import org.kiji.schema.KijiTableWriter;
+import org.kiji.schema.layout.KijiTableLayouts;
+import org.kiji.schema.testutil.AbstractKijiIntegrationTest;
+import org.kiji.scoring.AlwaysFresh;
+import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.KijiFreshnessManager;
+import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.NeverFresh;
+
+/**
+ * Benchmarking test for Freshness performance.
+ */
+public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTest {
+  private final static Logger LOG =
+      LoggerFactory.getLogger(IntegrationTestFreshnessBenchmark.class);
+
+  private static final class IncrementingProducer extends KijiProducer {
+    public KijiDataRequest getDataRequest() {
+      return null;
+    }
+
+    public String getOutputColumn() {
+      return "info:visits";
+    }
+
+    @Override
+    public void produce(final KijiRowData kijiRowData, final ProducerContext producerContext) throws IOException {
+      final Long old = kijiRowData.getMostRecentValue("info", "visits");
+      producerContext.put(old + 1);
+    }
+  }
+
+  Kiji mKiji;
+  KijiTable mTable;
+  KijiTableWriter mWriter;
+  KijiTableReader mReader;
+  FreshKijiTableReader mFreshReader;
+  KijiFreshnessManager mManager;
+
+  @Before
+  public void setupIntegrationTestFreshnessBenchmark() throws IOException {
+    mKiji = Kiji.Factory.open(getKijiURI());
+    mKiji.createTable(KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
+    mTable = mKiji.openTable("user");
+    mWriter = mTable.openTableWriter();
+    mReader = mTable.openTableReader();
+    mManager = new KijiFreshnessManager(mKiji);
+    KijiFreshnessPolicy policy = new AlwaysFresh();
+    mManager.storePolicy(
+        "user", "info:name", TestHBaseFreshKijiTableReader.TestProducer.class, policy);
+    mFreshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+  }
+
+  @After
+  public void cleanupIntegrationTestFreshnessBenchmark() throws IOException {
+    mFreshReader.close();
+    mManager.removePolicy("user", "info:name");
+    mReader.close();
+    mWriter.close();
+    mTable.release();
+    mKiji.release();
+  }
+
+  private long getTime(
+      KijiTableReader reader, EntityId eid, KijiDataRequest request) throws IOException {
+    final long startTime = System.currentTimeMillis();
+    reader.get(eid, request);
+    return System.currentTimeMillis() - startTime;
+  }
+
+  private long max(List<Long> ls) {
+    return Collections.max(ls);
+  }
+
+  private long median(List<Long> ls) {
+    Collections.sort(ls);
+    return ls.get(4999);
+  }
+
+  @Test
+  public void testFresh() throws IOException {
+    EntityId eid = mTable.getEntityId("foo");
+    KijiDataRequest request = KijiDataRequest.create("info", "name");
+    mWriter.put(eid, "info", "name", "foo-val");
+    final ArrayList<Long> normalMetaTimes = Lists.newArrayList();
+    final ArrayList<Long> freshMetaTimes = Lists.newArrayList();
+    for (int times = 0; times < 10; times++) {
+      final long normalStartTime = System.currentTimeMillis();
+      final ArrayList<Long> normalTimes = Lists.newArrayList();
+      for (int i = 0; i < 10000; i++) {
+        normalTimes.add(getTime(mReader, eid, request));
+      }
+      final long normalEndTime = System.currentTimeMillis();
+      final long freshStartTime = System.currentTimeMillis();
+      final ArrayList<Long> freshTimes = Lists.newArrayList();
+      for (int i = 0; i < 10000; i++) {
+        freshTimes.add(getTime(mFreshReader, eid, request));
+      }
+      final long freshEndTime = System.currentTimeMillis();
+
+      final long totalNormalTime = normalEndTime - normalStartTime;
+      final long totalFreshTime = freshEndTime - freshStartTime;
+
+      final long maxNormalTime = max(normalTimes);
+      final long maxFreshTime = max(freshTimes);
+
+      final long medianNormalTime = median(normalTimes);
+      final long medianFreshTime = median(freshTimes);
+
+      LOG.info("Normal first attempt number: {}", times);
+      LOG.info("Total time for normal get(): {}", totalNormalTime);
+      LOG.info("Total time for fresh get(): {}", totalFreshTime);
+      LOG.info("Max time for normal get(): {}", maxNormalTime);
+      LOG.info("Max time for fresh get(): {}", maxFreshTime);
+      LOG.info("Median time for normal get(): {}", medianNormalTime);
+      LOG.info("Median time for fresh get(): {}", medianFreshTime);
+
+      normalMetaTimes.add(totalNormalTime);
+      freshMetaTimes.add(totalFreshTime);
+    }
+    long normalTotal = 0L;
+    for (Long time : normalMetaTimes) {
+      normalTotal += time;
+    }
+    long freshTotal = 0L;
+    for (Long time : freshMetaTimes) {
+      freshTotal += time;
+    }
+    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 100000);
+    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 100000);
+  }
+
+  @Test
+  public void testFreshReversed() throws IOException {
+    EntityId eid = mTable.getEntityId("foo");
+    KijiDataRequest request = KijiDataRequest.create("info", "name");
+    mWriter.put(eid, "info", "name", "foo-val");
+    final ArrayList<Long> normalMetaTimes = Lists.newArrayList();
+    final ArrayList<Long> freshMetaTimes = Lists.newArrayList();
+    for (int times = 0; times < 10; times++) {
+      final long freshStartTime = System.currentTimeMillis();
+      final ArrayList<Long> freshTimes = Lists.newArrayList();
+      for (int i = 0; i < 10000; i++) {
+        freshTimes.add(getTime(mFreshReader, eid, request));
+      }
+      final long freshEndTime = System.currentTimeMillis();
+      final long normalStartTime = System.currentTimeMillis();
+      final ArrayList<Long> normalTimes = Lists.newArrayList();
+      for (int i = 0; i < 10000; i++) {
+        normalTimes.add(getTime(mReader, eid, request));
+      }
+      final long normalEndTime = System.currentTimeMillis();
+
+      final long totalNormalTime = normalEndTime - normalStartTime;
+      final long totalFreshTime = freshEndTime - freshStartTime;
+
+      final long maxNormalTime = max(normalTimes);
+      final long maxFreshTime = max(freshTimes);
+
+      final long medianNormalTime = median(normalTimes);
+      final long medianFreshTime = median(freshTimes);
+
+      LOG.info("Fresh first attempt number: {}", times);
+      LOG.info("Total time for normal get(): {}", totalNormalTime);
+      LOG.info("Total time for fresh get(): {}", totalFreshTime);
+      LOG.info("Max time for normal get(): {}", maxNormalTime);
+      LOG.info("Max time for fresh get(): {}", maxFreshTime);
+      LOG.info("Median time for normal get(): {}", medianNormalTime);
+      LOG.info("Median time for fresh get(): {}", medianFreshTime);
+
+      normalMetaTimes.add(totalNormalTime);
+      freshMetaTimes.add(totalFreshTime);
+    }
+    long normalTotal = 0L;
+    for (Long time : normalMetaTimes) {
+      normalTotal += time;
+    }
+    long freshTotal = 0L;
+    for (Long time : freshMetaTimes) {
+      freshTotal += time;
+    }
+    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 100000);
+    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 100000);
+  }
+
+  @Test
+  public void testIteratingProducer() throws IOException {
+    EntityId eid = mTable.getEntityId("foo");
+    KijiDataRequest request = KijiDataRequest.create("info", "visits");
+    mWriter.put(eid, "info", "visits", 1);
+    final KijiFreshnessPolicy policy = new NeverFresh();
+    mManager.storePolicy("user", "info:visits", IncrementingProducer.class, policy);
+    final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+
+    for (int times = 0; times < 10; times++) {
+      final ArrayList<Long> normalTimes = Lists.newArrayList();
+      final ArrayList<Long> freshTimes = Lists.newArrayList();
+      for (int i = 0; i < 10000; i++) {
+        normalTimes.add(getTime(mReader, eid, request));
+        freshTimes.add(getTime(freshReader, eid, request));
+      }
+
+      final long maxNormalTime = max(normalTimes);
+      final long maxFreshTime = max(freshTimes);
+
+      final long medianNormalTime = median(normalTimes);
+      final long medianFreshTime = median(freshTimes);
+
+      LOG.info("Normal first, incrementing producer attempt number: {}", times);
+      LOG.info("Max time for normal get(): {}", maxNormalTime);
+      LOG.info("Max time for fresh get(): {}", maxFreshTime);
+      LOG.info("Median time for normal get(): {}", medianNormalTime);
+      LOG.info("Median time for fresh get(): {}", medianFreshTime);
+
+    }
+
+    assertEquals(10000L, mReader.get(eid, request).getMostRecentValue("info", "visits"));
+  }
+}

@@ -220,6 +220,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
         public Boolean call() throws IOException {
           KijiRowData rowData = null;
+          //TODO store these and use a setter for client request
           final PolicyContext policyContext =
               new InternalPolicyContext(clientRequest, key, mTable.getKiji().getConf());
           try {
@@ -358,6 +359,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
       if (ee.getCause() instanceof RuntimeException) {
+        // TODO does this actually make it harder to find the cause of an error?
         throw new RuntimeException(ee.getCause());
       }
       // This should be unreachable, since superFuture's call method throws nothing but runtime.
