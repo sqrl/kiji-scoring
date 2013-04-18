@@ -356,6 +356,7 @@ public class TestHBaseFreshKijiTableReader {
 
     // Wait for the producer to finish then try again.
     Thread.sleep(1000L);
-    assertEquals("new-val", mReader.get(eid, request).getMostRecentValue("info", "name").toString());
+    assertEquals("new-val",
+        mReader.get(eid, request).getMostRecentValue("info", "name").toString());
   }
 }
