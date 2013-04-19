@@ -31,27 +31,27 @@ import org.kiji.scoring.PolicyContext;
 public final class InternalPolicyContext implements PolicyContext {
   private final Configuration mConf;
   private final KijiColumnName mAttachedColumn;
-  private final KijiDataRequest mUserRequest;
+  private KijiDataRequest mClientRequest;
 
   /**
    * Creates a new InternalPolicyContext to give freshness policies access to outside data.
    *
-   * @param userRequest The client data request which necessitates a freshness check.
+   * @param clientRequest The client data request which necessitates a freshness check.
    * @param attachedColumn The column to which the freshness policy is attached.
    * @param conf The Configuration from the Kiji instance housing the KijiTable from which this
    *   FreshKijiTableReader reads.
    */
   public InternalPolicyContext(
-      KijiDataRequest userRequest, KijiColumnName attachedColumn, Configuration conf) {
-    mUserRequest = userRequest;
+      KijiDataRequest clientRequest, KijiColumnName attachedColumn, Configuration conf) {
+    mClientRequest = clientRequest;
     mAttachedColumn = attachedColumn;
     mConf = conf;
   }
 
   /** {@inheritDoc} */
   @Override
-  public KijiDataRequest getUserRequest() {
-    return mUserRequest;
+  public KijiDataRequest getClientRequest() {
+    return mClientRequest;
   }
 
   /** {@inheritDoc} */

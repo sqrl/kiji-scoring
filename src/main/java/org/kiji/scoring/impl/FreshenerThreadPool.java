@@ -38,7 +38,7 @@ public final class FreshenerThreadPool {
    *
    * @return The singletone instance.
    */
-  public static FreshenerThreadPool getInstance() {
+  private static FreshenerThreadPool getInstance() {
     if (mPool == null) {
       synchronized (FreshenerThreadPool.class) {
         if (mPool == null) {
@@ -54,7 +54,7 @@ public final class FreshenerThreadPool {
    *
    * @return The singleton's executor.
    */
-  public ExecutorService get() {
-    return mExecutor;
+  public static ExecutorService get() {
+    return getInstance().mExecutor;
   }
 }

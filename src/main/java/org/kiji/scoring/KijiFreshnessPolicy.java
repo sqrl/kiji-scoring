@@ -31,7 +31,9 @@ public interface KijiFreshnessPolicy {
   /**
    * Tests a KijiRowData for freshness according to this policy.
    *
-   * @param rowData The KijiRowData to test for freshness.
+   * @param rowData The KijiRowData to test for freshness.  The result of either
+   *   {@link #getDataRequest()} or the client data request if {@link #shouldUseClientDataRequest()}
+   *   is true.
    * @param policyContext the PolicyContext object containing information about this execution
    * state.
    * @return Whether the data is fresh.
@@ -48,9 +50,9 @@ public interface KijiFreshnessPolicy {
 
   /**
    * Custom data request required to fulfill
-   * {@link KijiFreshnessPolicy#isFresh(org.kiji.schema.KijiRowData,
-   * org.kiji.scoring.impl.PolicyContext)} isFresh(KijiRowData)} if the
-   * client's data request is insufficient.
+   * {@link #isFresh(org.kiji.schema.KijiRowData, org.kiji.scoring.impl.PolicyContext)} if the
+   * client's data request is insufficient.  If {@link #shouldUseClientDataRequest()} is true, this
+   * should return null.
    *
    * @return The custom data request.
    */

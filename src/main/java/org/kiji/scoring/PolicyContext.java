@@ -31,7 +31,7 @@ public interface PolicyContext {
   /**
    * @return The KijiDataRequest issued by the client for this
    */
-  KijiDataRequest getUserRequest();
+  KijiDataRequest getClientRequest();
 
   /**
    * @return The name of the column to which the freshness policy is attached.
