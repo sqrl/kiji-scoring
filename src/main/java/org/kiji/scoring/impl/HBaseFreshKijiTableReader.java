@@ -78,13 +78,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    */
   private final Map<KijiColumnName, KijiFreshnessPolicyRecord> mPolicyRecords;
 
-  // TODO instantiate these maps in the constructor to allow them to be final and simplify
-  // population logic.
   /** Cache of freshness policy instances indexed by column names. Lazily populated as needed. */
-  private Map<KijiColumnName, KijiFreshnessPolicy> mPolicyCache;
+  private final Map<KijiColumnName, KijiFreshnessPolicy> mPolicyCache;
 
   /** Cache of Producer objects indexed by column name.  Lazily populated as needed. */
-  private Map<KijiColumnName, KijiProducer> mProducerCache;
+  private final Map<KijiColumnName, KijiProducer> mProducerCache;
 
   /**
    * Creates a new <code>HBaseFreshKijiTableReader</code> instance that sends read requests
@@ -99,12 +97,14 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   // TODO refactor this to a factory
   public HBaseFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
     mTable = table;
-    final KijiFreshnessManager manager = new KijiFreshnessManager(table.getKiji());
     // opening a reader retains the table, so we do not need to call retain manually.
     mReader = mTable.openTableReader();
-    mPolicyRecords = manager.retrievePolicies(mTable.getName());
     mExecutor = FreshenerThreadPool.get();
     mTimeout = timeout;
+    final KijiFreshnessManager manager = new KijiFreshnessManager(table.getKiji());
+    mPolicyRecords = manager.retrievePolicies(mTable.getName());
+    mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
+    mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
   }
 
   /**
@@ -138,12 +138,9 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     final Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     for (Column column: columns) {
-      if (mPolicyCache != null && mPolicyCache.containsKey(column.getColumnName())) {
+      if (mPolicyCache.containsKey(column.getColumnName())) {
         policies.put(column.getColumnName(), mPolicyCache.get(column.getColumnName()));
       } else {
-        if (mPolicyCache == null) {
-          mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-        }
         final KijiFreshnessPolicyRecord record = mPolicyRecords.get(column.getColumnName());
         if (record != null) {
           // Instantiate and initialize the policies.
@@ -257,12 +254,9 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
               return Boolean.FALSE;
             } else {
               final KijiProducer producer;
-              if (mProducerCache != null && mProducerCache.containsKey(key)) {
+              if (mProducerCache.containsKey(key)) {
                 producer = mProducerCache.get(key);
               } else {
-                if (mProducerCache == null) {
-                  mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
-                }
                 producer = producerForName(mPolicyRecords.get(key).getProducerClass());
                 mProducerCache.put(key, producer);
               }
@@ -297,19 +291,16 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
             return Boolean.FALSE;
           } else {
             final KijiProducer producer;
-            if (mProducerCache != null && mProducerCache.containsKey(key)) {
+            if (mProducerCache.containsKey(key)) {
               producer = mProducerCache.get(key);
             } else {
-              if (mProducerCache == null) {
-                mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
-              }
               producer = producerForName(mPolicyRecords.get(key).getProducerClass());
               mProducerCache.put(key, producer);
             }
             final KijiFreshProducerContext context =
                 KijiFreshProducerContext.create(mTable, key, eid);
             // TODO change setup cleanup to not use contexts.  Works now because there aren't any
-            // context calls in setup or cleanup, but there will be threadsafety problems if people
+            // context calls in setup or cleanup, but there will be thread safety problems if people
             // actually try to use them.
             producer.setup(context);
             producer.produce(mReader.get(eid, producer.getDataRequest()), context);
