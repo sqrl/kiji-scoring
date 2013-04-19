@@ -233,7 +233,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
                   + "Freshness policies which operate against "
                   + "the client data request will not run. " + ee.getCause().getMessage());
             } else {
-              throw new RuntimeException(ee.getCause());
+              throw new RuntimeException(ee);
             }
           }
           if (rowData != null) {
@@ -335,7 +335,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
               LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
                   + "not run. " + ee.getCause().getMessage());
             } else {
-              throw new RuntimeException(ee.getCause());
+              throw new RuntimeException(ee);
             }
           } catch (InterruptedException ie) {
             throw new RuntimeException("Freshening thread interrupted.", ie);
@@ -358,12 +358,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     } catch (InterruptedException ie) {
       throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
-      if (ee.getCause() instanceof RuntimeException) {
-        // TODO does this actually make it harder to find the cause of an error?
-        throw new RuntimeException(ee.getCause());
-      }
-      // This should be unreachable, since superFuture's call method throws nothing but runtime.
-      return mReader.get(eid, dataRequest);
+      throw new RuntimeException(ee);
     } catch (TimeoutException te) {
       return mReader.get(eid, dataRequest);
     }
@@ -396,7 +391,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
               LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
                   + "not run. " + ee.getCause().getMessage());
             } else {
-              throw new RuntimeException(ee.getCause());
+              throw new RuntimeException(ee);
             }
           }
         }
@@ -410,11 +405,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     } catch (InterruptedException ie) {
       throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
-      if (ee.getCause() instanceof RuntimeException) {
-        throw new RuntimeException(ee.getCause());
-      }
-      // This should be unreachable, since superDuperFuture's call method throws nothing but runtime
-      return mReader.bulkGet(eids, dataRequest);
+      throw new RuntimeException(ee);
     } catch (TimeoutException te) {
       return mReader.bulkGet(eids, dataRequest);
     }

@@ -40,7 +40,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
 
   private static final class IncrementingProducer extends KijiProducer {
     public KijiDataRequest getDataRequest() {
-      return null;
+      return KijiDataRequest.create("info", "visits");
     }
 
     public String getOutputColumn() {
@@ -98,7 +98,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
 
   private long median(List<Long> ls) {
     Collections.sort(ls);
-    return ls.get(4999);
+    return ls.get(499);
   }
 
   @Test
@@ -111,13 +111,13 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     for (int times = 0; times < 10; times++) {
       final long normalStartTime = System.currentTimeMillis();
       final ArrayList<Long> normalTimes = Lists.newArrayList();
-      for (int i = 0; i < 10000; i++) {
+      for (int i = 0; i < 1000; i++) {
         normalTimes.add(getTime(mReader, eid, request));
       }
       final long normalEndTime = System.currentTimeMillis();
       final long freshStartTime = System.currentTimeMillis();
       final ArrayList<Long> freshTimes = Lists.newArrayList();
-      for (int i = 0; i < 10000; i++) {
+      for (int i = 0; i < 1000; i++) {
         freshTimes.add(getTime(mFreshReader, eid, request));
       }
       final long freshEndTime = System.currentTimeMillis();
@@ -150,8 +150,8 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     for (Long time : freshMetaTimes) {
       freshTotal += time;
     }
-    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 100000);
-    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 100000);
+    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 10000);
+    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 10000);
   }
 
   @Test
@@ -164,13 +164,13 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     for (int times = 0; times < 10; times++) {
       final long freshStartTime = System.currentTimeMillis();
       final ArrayList<Long> freshTimes = Lists.newArrayList();
-      for (int i = 0; i < 10000; i++) {
+      for (int i = 0; i < 1000; i++) {
         freshTimes.add(getTime(mFreshReader, eid, request));
       }
       final long freshEndTime = System.currentTimeMillis();
       final long normalStartTime = System.currentTimeMillis();
       final ArrayList<Long> normalTimes = Lists.newArrayList();
-      for (int i = 0; i < 10000; i++) {
+      for (int i = 0; i < 1000; i++) {
         normalTimes.add(getTime(mReader, eid, request));
       }
       final long normalEndTime = System.currentTimeMillis();
@@ -203,15 +203,15 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     for (Long time : freshMetaTimes) {
       freshTotal += time;
     }
-    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 100000);
-    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 100000);
+    LOG.info("Average normal get() time over 10 sets of 10000: {}", normalTotal / 10000);
+    LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 10000);
   }
 
   @Test
-  public void testIteratingProducer() throws IOException {
+  public void testIncrementingProducer() throws IOException {
     EntityId eid = mTable.getEntityId("foo");
     KijiDataRequest request = KijiDataRequest.create("info", "visits");
-    mWriter.put(eid, "info", "visits", 1);
+    mWriter.put(eid, "info", "visits", 0);
     final KijiFreshnessPolicy policy = new NeverFresh();
     mManager.storePolicy("user", "info:visits", IncrementingProducer.class, policy);
     final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
@@ -219,7 +219,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     for (int times = 0; times < 10; times++) {
       final ArrayList<Long> normalTimes = Lists.newArrayList();
       final ArrayList<Long> freshTimes = Lists.newArrayList();
-      for (int i = 0; i < 10000; i++) {
+      for (int i = 0; i < 1000; i++) {
         normalTimes.add(getTime(mReader, eid, request));
         freshTimes.add(getTime(freshReader, eid, request));
       }
