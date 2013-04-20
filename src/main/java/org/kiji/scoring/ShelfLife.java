@@ -27,10 +27,25 @@ import org.kiji.schema.KijiRowData;
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh if requested data was
  * modified within a specified number of milliseconds of the current time.
+ *
+ * TODO should ShelfLife and NewerThan have alternate constructors that take a long and fill the
+ * state which would otherwise be filled by a call to load?
  */
 public final class ShelfLife implements KijiFreshnessPolicy {
   private long mShelfLifeMillis = -1;
 
+  /**
+   * Default empty constructor for automatic construction. User must call {@link #load(String)} to
+   * initialize state.
+   */
+  public ShelfLife() {}
+
+  /** Constructor which initializes all state.  No call to {@link #load(String)} is necessary. */
+  public ShelfLife(long shelfLife) {
+    mShelfLifeMillis = shelfLife;
+  }
+
+  /** {@inheritDoc} */
   @Override
   public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     final KijiColumnName columnName = policyContext.getAttachedColumn();
@@ -38,7 +53,7 @@ public final class ShelfLife implements KijiFreshnessPolicy {
       throw new RuntimeException("Shelf life not set.  Did you call ShelfLife.load()?");
     }
     if (columnName == null) {
-      throw new RuntimeException("Target column was not set.");
+      throw new RuntimeException("Target column was not set in the PolicyContext.");
     }
     // If the column does not exist in the row data, it is not fresh.
     if (!rowData.containsColumn(columnName.getFamily(), columnName.getQualifier())) {
@@ -47,29 +62,32 @@ public final class ShelfLife implements KijiFreshnessPolicy {
 
     NavigableSet<Long> timestamps =
         rowData.getTimestamps(columnName.getFamily(), columnName.getQualifier());
-    // If there are no values in the column in the row data, it is not fresh.
-    if (timestamps.isEmpty()) {
-      return false;
-    }
-    return System.currentTimeMillis() - timestamps.first() <= mShelfLifeMillis;
+    // If there are no values in the column in the row data, it is not fresh.  If there are values,
+    // but the newest is more than mShelfLifeMillis old, it is not fresh.
+    return !timestamps.isEmpty()
+        && System.currentTimeMillis() - timestamps.first() <= mShelfLifeMillis;
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean shouldUseClientDataRequest() {
     return true;
   }
 
+  /** {@inheritDoc} */
   @Override
   public KijiDataRequest getDataRequest() {
     return null;
   }
 
+  /** {@inheritDoc} */
   @Override
   public String store() {
     // The only required state is the shelf life duration.
     return String.valueOf(mShelfLifeMillis);
   }
 
+  /** {@inheritDoc} */
   @Override
   public void load(String policyState) {
     // Load the shelf life from the policy state.

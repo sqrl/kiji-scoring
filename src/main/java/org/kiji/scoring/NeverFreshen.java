@@ -24,29 +24,33 @@ import org.kiji.schema.KijiRowData;
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh for any KijiRowData.
  */
-public final class AlwaysFresh implements KijiFreshnessPolicy {
-  //{@inheritDoc}
+public final class NeverFreshen implements KijiFreshnessPolicy {
+  /** {@inheritDoc} */
   @Override
   public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     return true;
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean shouldUseClientDataRequest() {
     return true;
   }
 
+  /** {@inheritDoc} */
   @Override
   public KijiDataRequest getDataRequest() {
     return null;
   }
 
+  /** {@inheritDoc} */
   @Override
   public String store() {
-    // Return the empty string because AlwaysFresh requires no state.
+    // Return the empty string because NeverFreshen requires no state.
     return "";
   }
 
+  /** {@inheritDoc} */
   @Override
   public void load(String policyState) {
     // empty because this policy has no state.

@@ -31,7 +31,8 @@ import org.kiji.schema.KijiTable;
 import org.kiji.schema.KijiTableWriter;
 
 /**
- * Producer context for freshening KijiProducers.
+ * Producer context for freshening KijiProducers.  The context is responsible for providing access
+ * to KVStores and processing writes during produce.
  */
 public final class KijiFreshProducerContext implements ProducerContext {
 
@@ -98,6 +99,8 @@ public final class KijiFreshProducerContext implements ProducerContext {
   @Override
   public <T> void put(final String qualifier, final long timestamp, final T value)
       throws IOException {
+    Preconditions.checkArgument(mQualifier == null, "Qualifier is already set in the "
+        + "ProducerContext, use KijiFreshProducerContext.put(timestamp, value)");
     mWriter.put(mEntityId, mFamily, qualifier, timestamp, value);
   }
 

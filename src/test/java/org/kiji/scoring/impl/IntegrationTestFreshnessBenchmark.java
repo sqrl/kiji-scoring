@@ -44,11 +44,11 @@ import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.KijiTableWriter;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.testutil.AbstractKijiIntegrationTest;
-import org.kiji.scoring.AlwaysFresh;
+import org.kiji.scoring.AlwaysFreshen;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFresh;
+import org.kiji.scoring.NeverFreshen;
 
 /**
  * Benchmarking test for Freshness performance.
@@ -66,7 +66,6 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
       return "info:visits";
     }
 
-    @Override
     public void produce(final KijiRowData kijiRowData, final ProducerContext producerContext)
         throws IOException {
       final Long old = kijiRowData.getMostRecentValue("info", "visits");
@@ -89,7 +88,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     mWriter = mTable.openTableWriter();
     mReader = mTable.openTableReader();
     mManager = new KijiFreshnessManager(mKiji);
-    KijiFreshnessPolicy policy = new AlwaysFresh();
+    KijiFreshnessPolicy policy = new NeverFreshen();
     mManager.storePolicy(
         "user", "info:name", TestHBaseFreshKijiTableReader.TestProducer.class, policy);
     mFreshReader = new HBaseFreshKijiTableReader(mTable, 1000);
@@ -235,7 +234,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     EntityId eid = mTable.getEntityId("foo");
     KijiDataRequest request = KijiDataRequest.create("info", "visits");
     mWriter.put(eid, "info", "visits", 0);
-    final KijiFreshnessPolicy policy = new NeverFresh();
+    final KijiFreshnessPolicy policy = new AlwaysFreshen();
     mManager.storePolicy("user", "info:visits", IncrementingProducer.class, policy);
     final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
 

@@ -18,6 +18,12 @@
  */
 package org.kiji.scoring;
 
+import java.io.IOException;
+import java.util.List;
+
+import org.kiji.schema.EntityId;
+import org.kiji.schema.KijiDataRequest;
+import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiTableReader;
 
 /**
@@ -26,6 +32,7 @@ import org.kiji.schema.KijiTableReader;
  * <p>
  *   Utilizes {@link org.kiji.schema.EntityId} and {@link org.kiji.schema.KijiDataRequest}
  *   to return {@link org.kiji.schema.KijiRowData}.  Accessible via
+ * TODO actually make FreshKijiTableReaderFactory
  *   {@link FreshKijiTableReaderFactory#openFreshReader(org.kiji.schema.KijiTable)}.
  * </p>
  *
@@ -66,4 +73,32 @@ import org.kiji.schema.KijiTableReader;
  *
  * @see org.kiji.scoring.KijiFreshnessPolicy
  */
-public interface FreshKijiTableReader extends KijiTableReader {}
+public interface FreshKijiTableReader extends KijiTableReader {
+
+  /**
+   * Freshens data as needed before returning.  Behaves the same as
+   *   {@link org.kiji.schema.KijiTableReader#get(org.kiji.schema.EntityId,
+   *   org.kiji.schema.KijiDataRequest)} except for the possibility of freshening.
+   *
+   * @param entityId EntityId of the row to query.
+   * @param dataRequest What data to retrieve.
+   * @return The data requested after freshening.
+   * @throws IOException in case of an error reading from the table.
+   */
+  @Override
+  KijiRowData get(EntityId entityId, KijiDataRequest dataRequest) throws IOException;
+
+  /**
+   * Attempts to freshen all data requested in parallel before returning the most up to date data
+   *   available.
+   *
+   * @param entityIds A list of EntityIds for the rows to query.
+   * @param dataRequest What data to retrieve.
+   * @return a list of KijiRowData corresponding the the EntityIds and data request after
+   *   freshening.
+   * @throws IOException in case of an error reading from the table.
+   */
+  @Override
+  List<KijiRowData> bulkGet(List<EntityId> entityIds, KijiDataRequest dataRequest)
+      throws IOException;
+}

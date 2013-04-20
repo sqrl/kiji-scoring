@@ -32,6 +32,18 @@ import org.kiji.schema.KijiRowData;
 public class NewerThan implements KijiFreshnessPolicy {
   private long mNewerThanTimestamp = -1;
 
+  /**
+   * Default empty constructor for automatic construction. User must call {@link #load(String)} to
+   * initialize state.
+   */
+  public NewerThan() {}
+
+  /** Constructor which initializes all state.  No call to {@link #load(String)} is necessary. */
+  public NewerThan(long newerThan) {
+    mNewerThanTimestamp = newerThan;
+  }
+
+  /** {@inheritDoc} */
   @Override
   public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     final KijiColumnName columnName = policyContext.getAttachedColumn();
@@ -39,7 +51,7 @@ public class NewerThan implements KijiFreshnessPolicy {
       throw new RuntimeException("Newer than timestamp not set.  Did you call NewerThan.load()?");
     }
     if (columnName == null) {
-      throw new RuntimeException("Target column was not set.");
+      throw new RuntimeException("Target column was not set in the PolicyContext.");
     }
     // If the column does not exist in the row data, it is not fresh.
     if (!rowData.containsColumn(columnName.getFamily(), columnName.getQualifier())) {
@@ -48,29 +60,31 @@ public class NewerThan implements KijiFreshnessPolicy {
 
     NavigableSet<Long> timestamps =
         rowData.getTimestamps(columnName.getFamily(), columnName.getQualifier());
-    // If there are no values in the column in the row data, it is not fresh.
-    if (timestamps.isEmpty()) {
-      return false;
-    }
-    return timestamps.first() >= mNewerThanTimestamp;
+    // If there are no values in the column in the row data, it is not fresh.  If there are values
+    // but the newest value is older than mNewerThanTimestamp, it is not fresh.
+    return !timestamps.isEmpty() && timestamps.first() >= mNewerThanTimestamp;
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean shouldUseClientDataRequest() {
     return true;
   }
 
+  /** {@inheritDoc} */
   @Override
   public KijiDataRequest getDataRequest() {
     return null;
   }
 
+  /** {@inheritDoc} */
   @Override
   public String store() {
     // The only required state is the newer than timestamp.
     return String.valueOf(mNewerThanTimestamp);
   }
 
+  /** {@inheritDoc} */
   @Override
   public void load(String policyState) {
     // Load the newer than timestamp from the policy state.

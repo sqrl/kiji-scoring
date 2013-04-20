@@ -29,16 +29,22 @@ import org.kiji.schema.KijiDataRequest;
 public interface PolicyContext {
 
   /**
-   * @return The KijiDataRequest issued by the client for this
+   * Get the KijiDataRequest issued by the client for this.
+   *
+   * @return The KijiDataRequest issued by the client for this.
    */
   KijiDataRequest getClientRequest();
 
   /**
+   * Get the name of the column to which the freshness policy is attached.
+   *
    * @return The name of the column to which the freshness policy is attached.
    */
   KijiColumnName getAttachedColumn();
 
   /**
+   * Get the Configuration associated with the Kiji instance for this context.
+   *
    * @return The Configuration associated with the Kiji instance for this context.
    */
   Configuration getConfiguration();

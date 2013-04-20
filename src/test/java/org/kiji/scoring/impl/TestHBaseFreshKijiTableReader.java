@@ -51,10 +51,10 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
-import org.kiji.scoring.AlwaysFresh;
+import org.kiji.scoring.AlwaysFreshen;
+import org.kiji.scoring.NeverFreshen;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFresh;
 import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.ShelfLife;
 
@@ -176,16 +176,16 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
-    manager.storePolicy("user", "info:visits", TestProducer.class, new AlwaysFresh());
+    manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
     final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
     assertEquals(2, freshReader.getPolicies(completeRequest).size());
-    assertEquals(NeverFresh.class,
+    assertEquals(AlwaysFreshen.class,
         freshReader.getPolicies(completeRequest).get(new KijiColumnName("info", "name"))
         .getClass());
-    assertEquals(AlwaysFresh.class,
+    assertEquals(NeverFreshen.class,
         freshReader.getPolicies(completeRequest).get(new KijiColumnName("info", "visits"))
         .getClass());
   }
@@ -224,7 +224,7 @@ public class TestHBaseFreshKijiTableReader {
     assertEquals(0, actual.size());
 
     // Add two freshness policies.
-    usesClientDataRequest.put(new KijiColumnName("info", "name"), new AlwaysFresh());
+    usesClientDataRequest.put(new KijiColumnName("info", "name"), new NeverFreshen());
     usesOwnDataRequest.put(new KijiColumnName("info", "name"), new TestAlwaysFresh());
 
     // Get a list of two futures, both are always fresh, so should return false to indicate no
@@ -256,8 +256,8 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
-    manager.storePolicy("user", "info:visits", TestProducer.class, new AlwaysFresh());
+    manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies. Allow 10 seconds so it is very
     // unlikely to timeout.
@@ -278,8 +278,8 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
-    manager.storePolicy("user", "info:visits", TestProducer.class, new AlwaysFresh());
+    manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
     final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
@@ -305,8 +305,8 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestProducer.class, new NeverFresh());
-    manager.storePolicy("user", "info:visits", TestProducer.class, new AlwaysFresh());
+    manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
     final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
@@ -345,7 +345,7 @@ public class TestHBaseFreshKijiTableReader {
 
     // Create a KijiFreshnessManager and register some freshness policies.
     final KijiFreshnessManager manager = new KijiFreshnessManager(mKiji);
-    manager.storePolicy("user", "info:name", TestTimeoutProducer.class, new NeverFresh());
+    manager.storePolicy("user", "info:name", TestTimeoutProducer.class, new AlwaysFreshen());
 
     mFreshReader = new HBaseFreshKijiTableReader(mTable, 500);
 

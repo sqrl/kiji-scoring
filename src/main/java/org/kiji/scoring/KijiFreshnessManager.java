@@ -194,6 +194,7 @@ public final class KijiFreshnessManager implements Closeable {
 
   /**
    * Helper method that constructs a meta table key for a column name.
+   *
    * @param columnName the column for which to get a MetaTable key.
    * @return the MetaTable key for the given column.
    */
