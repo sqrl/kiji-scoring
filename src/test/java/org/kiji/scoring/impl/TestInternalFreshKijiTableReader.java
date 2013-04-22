@@ -59,10 +59,10 @@ import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.ShelfLife;
 
 /**
- * Tests HBaseFreshKijiTableReader.
+ * Tests InternalFreshKijiTableReader.
  */
-public class TestHBaseFreshKijiTableReader {
-  private static final Logger LOG = LoggerFactory.getLogger(TestHBaseFreshKijiTableReader.class);
+public class TestInternalFreshKijiTableReader {
+  private static final Logger LOG = LoggerFactory.getLogger(TestInternalFreshKijiTableReader.class);
 
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
   public static final class TestProducer extends KijiProducer {
@@ -117,7 +117,7 @@ public class TestHBaseFreshKijiTableReader {
   private Kiji mKiji;
   private KijiTable mTable;
   private KijiTableReader mReader;
-  private HBaseFreshKijiTableReader mFreshReader;
+  private InternalFreshKijiTableReader mFreshReader;
 
   @Before
   public void setupEnvironment() throws Exception {
@@ -141,7 +141,7 @@ public class TestHBaseFreshKijiTableReader {
     // Fill local variables.
     mTable = mKiji.openTable("user");
     mReader = mTable.openTableReader();
-    mFreshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+    mFreshReader = new InternalFreshKijiTableReader(mTable, 1000);
   }
 
   @After
@@ -180,7 +180,7 @@ public class TestHBaseFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000);
     assertEquals(2, freshReader.getPolicies(completeRequest).size());
     assertEquals(AlwaysFreshen.class,
         freshReader.getPolicies(completeRequest).get(new KijiColumnName("info", "name"))
@@ -204,7 +204,7 @@ public class TestHBaseFreshKijiTableReader {
   public void testProducerForName() throws Exception {
     final Class<? extends KijiProducer> expected = TestProducer.class;
     assertEquals(expected, mFreshReader.producerForName(
-        "org.kiji.scoring.impl.TestHBaseFreshKijiTableReader$TestProducer").getClass());
+        "org.kiji.scoring.impl.TestInternalFreshKijiTableReader$TestProducer").getClass());
   }
 
   @Test
@@ -261,7 +261,7 @@ public class TestHBaseFreshKijiTableReader {
 
     // Open a new reader to pull in the new freshness policies. Allow 10 seconds so it is very
     // unlikely to timeout.
-    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
 
     // freshReader should return the same as regular reader because the data is fresh.
     assertEquals(
@@ -282,7 +282,7 @@ public class TestHBaseFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
 
     // freshReader should return different from regular reader because the data is stale.
     assertFalse(
@@ -309,7 +309,7 @@ public class TestHBaseFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final HBaseFreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
 
     // Get the old data for comparison
     final List<KijiRowData> oldData =
@@ -347,7 +347,7 @@ public class TestHBaseFreshKijiTableReader {
     final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
     manager.storePolicy("user", "info:name", TestTimeoutProducer.class, new AlwaysFreshen());
 
-    mFreshReader = new HBaseFreshKijiTableReader(mTable, 500);
+    mFreshReader = new InternalFreshKijiTableReader(mTable, 500);
 
     // The fresh reader should return stale data after a timeout.
     assertEquals(

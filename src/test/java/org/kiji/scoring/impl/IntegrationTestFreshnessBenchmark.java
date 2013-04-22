@@ -90,8 +90,8 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     mManager = KijiFreshnessManager.create(mKiji);
     KijiFreshnessPolicy policy = new NeverFreshen();
     mManager.storePolicy(
-        "user", "info:name", TestHBaseFreshKijiTableReader.TestProducer.class, policy);
-    mFreshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+        "user", "info:name", TestInternalFreshKijiTableReader.TestProducer.class, policy);
+    mFreshReader = new InternalFreshKijiTableReader(mTable, 1000);
   }
 
   @After
@@ -236,7 +236,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     mWriter.put(eid, "info", "visits", 0);
     final KijiFreshnessPolicy policy = new AlwaysFreshen();
     mManager.storePolicy("user", "info:visits", IncrementingProducer.class, policy);
-    final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(mTable, 1000);
+    final FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000);
 
     for (int times = 0; times < 10; times++) {
       final ArrayList<Long> normalTimes = Lists.newArrayList();

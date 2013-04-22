@@ -87,7 +87,7 @@ public class IntegrationTestFreshnessDemo  extends AbstractKijiIntegrationTest {
     manager.storePolicy("user", "info:visits", DemoProducer.class, policy);
     // Open a FreshKijiTableReader for the table with a timeout of 100 milliseconds.
     // Note: the FreshKijiTableReader must be opened after the freshness policy is registered.
-    final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(table, 100);
+    final FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(table, 100);
 
     // Write an old value to the cell we plan to request with timestamp 1 and value 10.
     final EntityId eid = table.getEntityId("foo");

@@ -59,8 +59,8 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  */
 @ApiAudience.Private
 @ApiStability.Experimental
-public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
-  private static final Logger LOG = LoggerFactory.getLogger(HBaseFreshKijiTableReader.class);
+public final class InternalFreshKijiTableReader implements FreshKijiTableReader {
+  private static final Logger LOG = LoggerFactory.getLogger(InternalFreshKijiTableReader.class);
 
   /** The kiji table instance. */
   private final KijiTable mTable;
@@ -88,7 +88,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   private final Map<KijiColumnName, KijiProducer> mProducerCache;
 
   /**
-   * Creates a new <code>HBaseFreshKijiTableReader</code> instance that sends read requests
+   * Creates a new <code>InternalFreshKijiTableReader</code> instance that sends read requests
    * to an HBase table and performs freshening on the returned data.
    *
    * @param table the table that will be read/scored.
@@ -98,11 +98,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
    * @throws IOException if an error occurs while processing the table or freshness policy.
    */
   // TODO refactor this to a factory
-  public HBaseFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
+  public InternalFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
     mTable = table;
     // opening a reader retains the table, so we do not need to call retain manually.
     mReader = mTable.openTableReader();
-    mExecutor = FreshenerThreadPool.get();
+    mExecutor = FreshenerThreadPool.getInstance().getExecutorService();
     mTimeout = timeout;
     final KijiFreshnessManager manager = KijiFreshnessManager.create(table.getKiji());
     mPolicyRecords = manager.retrievePolicies(mTable.getName());
