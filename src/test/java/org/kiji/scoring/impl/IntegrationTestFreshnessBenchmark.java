@@ -117,11 +117,11 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
 
   private long median(List<Long> ls) {
     Collections.sort(ls);
-    return ls.get(499);
+    return ls.get(ls.size() / 2);
   }
 
   // Test Disabled
-  //@Test
+//  @Test
   public void testFresh() throws IOException {
     EntityId eid = mTable.getEntityId("foo");
     KijiDataRequest request = KijiDataRequest.create("info", "name");
@@ -175,7 +175,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
   }
 
   // Test Disabled
-  //@Test
+//  @Test
   public void testFreshReversed() throws IOException {
     EntityId eid = mTable.getEntityId("foo");
     KijiDataRequest request = KijiDataRequest.create("info", "name");
@@ -228,8 +228,8 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     LOG.info("Average fresh get() time over 10 sets of 10000: {}", freshTotal / 10000);
   }
 
-  // Test Disabled
-  //@Test
+// Test Disabled
+//  @Test
   public void testIncrementingProducer() throws IOException {
     EntityId eid = mTable.getEntityId("foo");
     KijiDataRequest request = KijiDataRequest.create("info", "visits");

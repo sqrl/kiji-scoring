@@ -78,7 +78,7 @@ public class IntegrationTestFreshnessDemo  extends AbstractKijiIntegrationTest {
     kiji.createTable(KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
     // Get a table from the Kiji instance.
     final KijiTable table = kiji.openTable("user");
-    // Get a KijiFreshnessManager for the instance.
+    // Get a KijiFreshnessManager for the Kiji instance.
     final KijiFreshnessManager manager = KijiFreshnessManager.create(kiji);
     // Create a ShelfLife freshness policy and load a 1 day shelf life duration.
     final KijiFreshnessPolicy policy = new ShelfLife(86400000);

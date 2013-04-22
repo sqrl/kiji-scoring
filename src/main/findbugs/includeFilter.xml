@@ -19,7 +19,7 @@
   -->
 <FindBugsFilter>
   <Match>
-    <!-- We only care about kiji-schema code. -->
+    <!-- We only care about kiji-scoring code. -->
     <Package name="~org[.]kiji[.]scoring[.].*" />
   </Match>
 </FindBugsFilter>

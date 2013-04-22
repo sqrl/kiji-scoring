@@ -326,7 +326,50 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     return futures;
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Callable used by {@link #get(org.kiji.schema.EntityId, org.kiji.schema.KijiDataRequest)}.
+   */
+  private static final class GetFuture implements Callable<Boolean> {
+    private final List<Future<Boolean>> mFutures;
+
+    /**
+     * Default Constructor.
+     *
+     * @param futures a List&lt;Future&lt;Boolean&gt;&gt; to convert to an aggregated Boolean.
+     */
+    private GetFuture(final List<Future<Boolean>> futures) {
+      mFutures = futures;
+    }
+
+    /**
+     * Aggregated Boolean return value of each Future in futures.
+     *
+     * @return Aggregated return value of each Future in futures.
+     */
+    public Boolean call() {
+      boolean retVal = false;
+      for (Future<Boolean> future: mFutures) {
+        // block on completion of each future and update the return value to be true if any
+        // future returns true.
+        try {
+          retVal = future.get() || retVal;
+        } catch (ExecutionException ee) {
+          if (ee.getCause() instanceof IOException) {
+            LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
+                + "not run. " + ee.getCause().getMessage());
+          } else {
+            throw new RuntimeException(ee);
+          }
+        } catch (InterruptedException ie) {
+          throw new RuntimeException("Freshening thread interrupted.", ie);
+        }
+      }
+      return retVal;
+    }
+  }
+
+
+    /** {@inheritDoc} */
   @Override
   public KijiRowData get(final EntityId eid, final KijiDataRequest dataRequest) throws IOException {
 
@@ -341,11 +384,11 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     final Map<KijiColumnName, KijiFreshnessPolicy> usesOwnDataRequest =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-    for (KijiColumnName key: policies.keySet()) {
-      if (policies.get(key).shouldUseClientDataRequest()) {
-        usesClientDataRequest.put(key, policies.get(key));
+    for (Map.Entry<KijiColumnName, KijiFreshnessPolicy> entry : policies.entrySet()) {
+      if (entry.getValue().shouldUseClientDataRequest()) {
+        usesClientDataRequest.put(entry.getKey(), entry.getValue());
       } else {
-        usesOwnDataRequest.put(key, policies.get(key));
+        usesOwnDataRequest.put(entry.getKey(), entry.getValue());
       }
     }
 
@@ -354,28 +397,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     final List<Future<Boolean>> futures =
         getFutures(usesClientDataRequest, usesOwnDataRequest, clientData, eid, dataRequest);
 
-    final Future<Boolean> superFuture = mExecutor.submit(new Callable<Boolean>() {
-      public Boolean call() {
-        boolean retVal = false;
-        for (Future<Boolean> future: futures) {
-          // block on completion of each future and update the return value to be true if any
-          // future returns true.
-          try {
-            retVal = future.get() || retVal;
-          } catch (ExecutionException ee) {
-            if (ee.getCause() instanceof IOException) {
-              LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
-                  + "not run. " + ee.getCause().getMessage());
-            } else {
-              throw new RuntimeException(ee);
-            }
-          } catch (InterruptedException ie) {
-            throw new RuntimeException("Freshening thread interrupted.", ie);
-          }
-        }
-        return retVal;
-      }
-    });
+    final Future<Boolean> superFuture = mExecutor.submit(new GetFuture(futures));
 
     try {
       if (superFuture.get(mTimeout, TimeUnit.MILLISECONDS)) {
@@ -402,6 +424,46 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     }
   }
 
+  /**
+   * Callable used by {@link #bulkGet(java.util.List, org.kiji.schema.KijiDataRequest)}.
+   */
+  private static final class BulkGetFuture implements Callable<List<KijiRowData>> {
+    private final List<Future<KijiRowData>> mFutures;
+
+    /**
+     * Default constructor.
+     *
+     * @param futures a list of Future&lt;KijiRowData&gt; to convert into a List&lt;KijiRowData&gt;.
+     */
+    public BulkGetFuture(List<Future<KijiRowData>> futures) {
+      mFutures = futures;
+    }
+
+    /**
+     * Returns the results of internal futures.
+     *
+     * @return the resulting List&lt;KijiRowData&gt;.
+     */
+    public List<KijiRowData> call() {
+      List<KijiRowData> results = Lists.newArrayList();
+      for (Future<KijiRowData> future : mFutures) {
+        try {
+          results.add(future.get());
+        } catch (InterruptedException ie) {
+          throw new RuntimeException("Freshening thread interrupted.", ie);
+        } catch (ExecutionException ee) {
+          if (ee.getCause() instanceof IOException) {
+            LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
+                + "not run. " + ee.getCause().getMessage());
+          } else {
+            throw new RuntimeException(ee);
+          }
+        }
+      }
+      return results;
+    }
+  }
+
   /** {@inheritDoc} */
   @Override
   public List<KijiRowData> bulkGet(
@@ -416,26 +478,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
       futures.add(future);
     }
     final Future<List<KijiRowData>> superDuperFuture =
-        mExecutor.submit(new Callable<List<KijiRowData>>() {
-      public List<KijiRowData> call() {
-        List<KijiRowData> results = Lists.newArrayList();
-        for (Future<KijiRowData> future : futures) {
-          try {
-            results.add(future.get());
-          } catch (InterruptedException ie) {
-            throw new RuntimeException("Freshening thread interrupted.", ie);
-          } catch (ExecutionException ee) {
-            if (ee.getCause() instanceof IOException) {
-              LOG.warn("Custom freshness policy data request failed.  Failed freshness policy will"
-                  + "not run. " + ee.getCause().getMessage());
-            } else {
-              throw new RuntimeException(ee);
-            }
-          }
-        }
-        return results;
-      }
-    });
+        mExecutor.submit(new BulkGetFuture(futures));
 
     final List<KijiRowData> futureResult;
     try {
