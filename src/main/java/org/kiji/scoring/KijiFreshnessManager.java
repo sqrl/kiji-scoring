@@ -35,6 +35,8 @@ import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.Kiji;
 import org.kiji.schema.KijiColumnName;
@@ -50,6 +52,8 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  * <p>Instance of class are not thread-safe. Since this class maintains a connection to the
  * metatable clients should call {@link close()} when finished with this class.</p>
  */
+@ApiAudience.Public
+@ApiStability.Experimental
 public final class KijiFreshnessManager implements Closeable {
   /** The minimum freshness version supported by this version of the KijiFreshnessManager. */
   private static final ProtocolVersion MIN_FRESHNESS_RECORD_VER =
@@ -84,7 +88,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @param kiji a Kiji instance containing the metatable storing freshness information.
    * @throws IOException if there is an error retrieving the metatable.
    */
-  public KijiFreshnessManager(Kiji kiji) throws IOException {
+  private KijiFreshnessManager(Kiji kiji) throws IOException {
     mMetaTable = kiji.getMetaTable();
     // Setup members responsible for serializing/deserializing records.
     mOutputStream = new ByteArrayOutputStream();
@@ -94,6 +98,17 @@ public final class KijiFreshnessManager implements Closeable {
         new SpecificDatumReader<KijiFreshnessPolicyRecord>(KijiFreshnessPolicyRecord.SCHEMA$);
     mEncoderFactory = EncoderFactory.get();
     mDecoderFactory = DecoderFactory.get();
+  }
+
+  /**
+   * Create a new KijiFreshnessManager for the given Kiji instance.
+   *
+   * @param kiji the Kiji instance for which to create a freshness manager.
+   * @return a new KijiFreshnessManager.
+   * @throws IOException in case of an error reading from the KijiMetaTable.
+   */
+  public static KijiFreshnessManager create(Kiji kiji) throws IOException {
+    return new KijiFreshnessManager(kiji);
   }
 
   /**

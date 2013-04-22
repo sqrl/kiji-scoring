@@ -36,8 +36,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.EntityId;
+import org.kiji.schema.InternalKijiError;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiDataRequest.Column;
@@ -56,6 +58,7 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  * Implementation of a Fresh Kiji Table Reader for HBase.
  */
 @ApiAudience.Private
+@ApiStability.Experimental
 public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   private static final Logger LOG = LoggerFactory.getLogger(HBaseFreshKijiTableReader.class);
 
@@ -101,7 +104,7 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     mReader = mTable.openTableReader();
     mExecutor = FreshenerThreadPool.get();
     mTimeout = timeout;
-    final KijiFreshnessManager manager = new KijiFreshnessManager(table.getKiji());
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(table.getKiji());
     mPolicyRecords = manager.retrievePolicies(mTable.getName());
     mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
@@ -229,6 +232,10 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
     // goes wrong there could be a null pointer in this for loop.  check against null before
     // proceeding?
     for (final KijiColumnName key: usesClientDataRequest.keySet()) {
+      if (clientData == null) {
+        throw new InternalKijiError(
+            "Freshness policy usesClientDataRequest, but client data is null.");
+      }
       final Future<Boolean> requiresReread = mExecutor.submit(new Callable<Boolean>() {
         public Boolean call() throws IOException {
           final PolicyContext policyContext =
@@ -465,6 +472,10 @@ public final class HBaseFreshKijiTableReader implements FreshKijiTableReader {
   /** {@inheritDoc} */
   @Override
   public void close() throws IOException {
+    // Cleanup all cached producers.
+    for (KijiColumnName key : mProducerCache.keySet()) {
+      mProducerCache.get(key).cleanup(null);
+    }
     // Closing the reader releases the underlying table reference, so we do not have to release it
     // manually.
     mReader.close();

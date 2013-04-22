@@ -20,12 +20,18 @@ package org.kiji.scoring;
 
 import org.apache.hadoop.conf.Configuration;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
+import org.kiji.annotations.Inheritance;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 
 /**
  * Context passed to KijiFreshnessPolicy instances to provide access to outside data.
  */
+@ApiAudience.Public
+@ApiStability.Experimental
+@Inheritance.Sealed
 public interface PolicyContext {
 
   /**

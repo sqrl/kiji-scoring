@@ -87,7 +87,7 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     mTable = mKiji.openTable("user");
     mWriter = mTable.openTableWriter();
     mReader = mTable.openTableReader();
-    mManager = new KijiFreshnessManager(mKiji);
+    mManager = KijiFreshnessManager.create(mKiji);
     KijiFreshnessPolicy policy = new NeverFreshen();
     mManager.storePolicy(
         "user", "info:name", TestHBaseFreshKijiTableReader.TestProducer.class, policy);

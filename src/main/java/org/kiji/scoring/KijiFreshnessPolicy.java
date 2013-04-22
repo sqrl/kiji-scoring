@@ -18,6 +18,9 @@
  */
 package org.kiji.scoring;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
+import org.kiji.annotations.Inheritance;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
@@ -39,6 +42,9 @@ import org.kiji.schema.KijiRowData;
  * KijiFreshnessPolicies are responsible for serializing and deserializing their own state using
  * {@link #store()} and {@link #load(String)} methods.
  */
+@ApiAudience.Public
+@ApiStability.Experimental
+@Inheritance.Extensible
 public interface KijiFreshnessPolicy {
   /**
    * Tests a KijiRowData for freshness according to this policy.

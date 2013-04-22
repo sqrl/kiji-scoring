@@ -23,6 +23,8 @@ import java.io.IOException;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hbase.HConstants;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.kvstore.KeyValueStoreReader;
 import org.kiji.mapreduce.produce.ProducerContext;
 import org.kiji.schema.EntityId;
@@ -34,6 +36,8 @@ import org.kiji.schema.KijiTableWriter;
  * Producer context for freshening KijiProducers.  The context is responsible for providing access
  * to KVStores and processing writes during produce.
  */
+@ApiAudience.Public
+@ApiStability.Experimental
 public final class KijiFreshProducerContext implements ProducerContext {
 
   private EntityId mEntityId;

@@ -20,6 +20,8 @@ package org.kiji.scoring.impl;
 
 import org.apache.hadoop.conf.Configuration;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.scoring.PolicyContext;
@@ -28,6 +30,8 @@ import org.kiji.scoring.PolicyContext;
  * Internal implementation of PolicyContext for providing KijiFreshnessPolicy instances access to
  * outside data.
  */
+@ApiAudience.Private
+@ApiStability.Experimental
 public final class InternalPolicyContext implements PolicyContext {
   private final Configuration mConf;
   private final KijiColumnName mAttachedColumn;

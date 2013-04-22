@@ -18,12 +18,16 @@
  */
 package org.kiji.scoring;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns stale for any KijiRowData.
  */
+@ApiAudience.Public
+@ApiStability.Experimental
 public final class AlwaysFreshen implements KijiFreshnessPolicy {
 
   /** {@inheritDoc} */

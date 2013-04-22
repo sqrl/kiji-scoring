@@ -79,14 +79,12 @@ public class IntegrationTestFreshnessDemo  extends AbstractKijiIntegrationTest {
     // Get a table from the Kiji instance.
     final KijiTable table = kiji.openTable("user");
     // Get a KijiFreshnessManager for the instance.
-    final KijiFreshnessManager manager = new KijiFreshnessManager(kiji);
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(kiji);
     // Create a ShelfLife freshness policy and load a 1 day shelf life duration.
-    final KijiFreshnessPolicy policy = new ShelfLife();
-    policy.load("86400000");
+    final KijiFreshnessPolicy policy = new ShelfLife(86400000);
     // Store the freshness policy in the meta table for the table "user" and column "info:visits"
     // using the ShelfLife freshness policy created above and the DemoProducer.
-    manager.storePolicy(
-        "user", "info:visits", DemoProducer.class, policy);
+    manager.storePolicy("user", "info:visits", DemoProducer.class, policy);
     // Open a FreshKijiTableReader for the table with a timeout of 100 milliseconds.
     // Note: the FreshKijiTableReader must be opened after the freshness policy is registered.
     final FreshKijiTableReader freshReader = new HBaseFreshKijiTableReader(table, 100);
@@ -103,7 +101,7 @@ public class IntegrationTestFreshnessDemo  extends AbstractKijiIntegrationTest {
     final KijiDataRequest request = KijiDataRequest.create("info", "visits");
     final KijiRowData rowData = reader.get(eid, request);
     LOG.info("Most recent timestamp: {}", rowData.getTimestamps("info", "visits").first());
-    LOG.info("Most recent value: {}",rowData.getMostRecentValue("info", "visits"));
+    LOG.info("Most recent value: {}", rowData.getMostRecentValue("info", "visits"));
 
     // Read from the table and get back a freshened value because 1L is more than a day ago.
     assertEquals(11L, freshReader.get(eid, request).getMostRecentValue("info", "visits"));

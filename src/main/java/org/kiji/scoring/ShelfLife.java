@@ -20,6 +20,8 @@ package org.kiji.scoring;
 
 import java.util.NavigableSet;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
@@ -28,9 +30,9 @@ import org.kiji.schema.KijiRowData;
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh if requested data was
  * modified within a specified number of milliseconds of the current time.
  *
- * TODO should ShelfLife and NewerThan have alternate constructors that take a long and fill the
- * state which would otherwise be filled by a call to load?
  */
+@ApiAudience.Public
+@ApiStability.Experimental
 public final class ShelfLife implements KijiFreshnessPolicy {
   private long mShelfLifeMillis = -1;
 
@@ -40,7 +42,11 @@ public final class ShelfLife implements KijiFreshnessPolicy {
    */
   public ShelfLife() {}
 
-  /** Constructor which initializes all state.  No call to {@link #load(String)} is necessary. */
+  /**
+   * Constructor which initializes all state.  No call to {@link #load(String)} is necessary.
+   *
+   * @param shelfLife the age in milliseconds beyond which data becomes stale.
+   */
   public ShelfLife(long shelfLife) {
     mShelfLifeMillis = shelfLife;
   }

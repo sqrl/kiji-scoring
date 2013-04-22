@@ -21,6 +21,9 @@ package org.kiji.scoring;
 import java.io.IOException;
 import java.util.List;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
+import org.kiji.annotations.Inheritance;
 import org.kiji.schema.EntityId;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
@@ -73,6 +76,9 @@ import org.kiji.schema.KijiTableReader;
  *
  * @see org.kiji.scoring.KijiFreshnessPolicy
  */
+@ApiAudience.Public
+@ApiStability.Experimental
+@Inheritance.Sealed
 public interface FreshKijiTableReader extends KijiTableReader {
 
   /**

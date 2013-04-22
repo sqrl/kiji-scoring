@@ -21,9 +21,14 @@ package org.kiji.scoring.impl;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
+
 /**
  * Singleton class providing a cached thread pool for Freshening table reads.
  */
+@ApiAudience.Private
+@ApiStability.Experimental
 public final class FreshenerThreadPool {
   private static FreshenerThreadPool mPool;
   private final ExecutorService mExecutor;
