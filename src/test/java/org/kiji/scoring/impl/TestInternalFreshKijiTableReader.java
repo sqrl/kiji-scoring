@@ -261,7 +261,8 @@ public class TestInternalFreshKijiTableReader {
 
     // Open a new reader to pull in the new freshness policies. Allow 10 seconds so it is very
     // unlikely to timeout.
-    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader =
+        new InternalFreshKijiTableReader(mTable, 10000);
 
     // freshReader should return the same as regular reader because the data is fresh.
     assertEquals(
@@ -282,7 +283,8 @@ public class TestInternalFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader =
+        new InternalFreshKijiTableReader(mTable, 10000);
 
     // freshReader should return different from regular reader because the data is stale.
     assertFalse(
@@ -309,7 +311,8 @@ public class TestInternalFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 10000);
+    final InternalFreshKijiTableReader freshReader =
+        new InternalFreshKijiTableReader(mTable, 10000);
 
     // Get the old data for comparison
     final List<KijiRowData> oldData =

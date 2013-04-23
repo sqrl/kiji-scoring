@@ -35,6 +35,15 @@
     <Class name="~org[.]kiji[.]scoring[.]avro[.].*" />
   </Match>
 
+  <!-- Double checking for null on instantiation of the singleton is acceptable. -->
+  <Match>
+    <Class name="org.kiji.scoring.impl.FreshenerThreadPool" />
+    <Or>
+      <Bug pattern="DC_DOUBLECHECK" />
+    </Or>
+  </Match>
+
+
   <!--
     Other one-off exclusions should go below.
   -->
