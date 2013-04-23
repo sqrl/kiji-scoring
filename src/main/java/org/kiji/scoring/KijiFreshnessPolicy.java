@@ -18,9 +18,13 @@
  */
 package org.kiji.scoring;
 
+import java.util.Map;
+
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
 import org.kiji.annotations.Inheritance;
+import org.kiji.mapreduce.kvstore.KeyValueStore;
+import org.kiji.mapreduce.kvstore.KeyValueStoreClient;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
@@ -45,7 +49,7 @@ import org.kiji.schema.KijiRowData;
 @ApiAudience.Public
 @ApiStability.Experimental
 @Inheritance.Extensible
-public interface KijiFreshnessPolicy {
+public interface KijiFreshnessPolicy extends KeyValueStoreClient {
   /**
    * Tests a KijiRowData for freshness according to this policy.
    *
@@ -75,6 +79,10 @@ public interface KijiFreshnessPolicy {
    * @return The custom data request.
    */
   KijiDataRequest getDataRequest();
+
+  /** {@inheritDoc} */
+  @Override
+  Map<String, KeyValueStore<?, ?>> getRequiredStores();
 
   /**
    * Serializes any state of the freshness policy for storage in a

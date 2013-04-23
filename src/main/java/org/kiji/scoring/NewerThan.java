@@ -19,10 +19,13 @@
 
 package org.kiji.scoring;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.NavigableSet;
 
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
+import org.kiji.mapreduce.kvstore.KeyValueStore;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
@@ -83,6 +86,12 @@ public class NewerThan implements KijiFreshnessPolicy {
   @Override
   public KijiDataRequest getDataRequest() {
     return null;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Map<String, KeyValueStore<?, ?>> getRequiredStores() {
+    return Collections.emptyMap();
   }
 
   /** {@inheritDoc} */

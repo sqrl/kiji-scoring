@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kiji.scoring;
+package org.kiji.scoring.impl;
 
 import java.io.IOException;
 
@@ -26,6 +26,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.kvstore.KeyValueStoreReader;
+import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory;
 import org.kiji.mapreduce.produce.ProducerContext;
 import org.kiji.schema.EntityId;
 import org.kiji.schema.KijiColumnName;
@@ -41,22 +42,28 @@ import org.kiji.schema.KijiTableWriter;
 public final class KijiFreshProducerContext implements ProducerContext {
 
   private EntityId mEntityId;
+  private KeyValueStoreReaderFactory mFactory;
   private String mFamily;
   private String mQualifier;
   private KijiTableWriter mWriter;
 
   /**
-   * Private constructor, use {@link KijiFreshProducerContext#create(
-   * org.kiji.schema.KijiTable, org.kiji.schema.KijiColumnName, org.kiji.schema.EntityId)}.
+   * Private constructor, use {@link KijiFreshProducerContext#create
+   * (org.kiji.schema.KijiTable, org.kiji.schema.KijiColumnName, org.kiji.schema.EntityId,
+   * org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory)}.
+   *
    * @param table the target table.
    * @param outputColumn the target column.
    * @param eid the target EntityId.
+   * @param factory a factory of kv-store readers.
    */
-  private KijiFreshProducerContext(KijiTable table, KijiColumnName outputColumn, EntityId eid) {
+  private KijiFreshProducerContext(KijiTable table, KijiColumnName outputColumn, EntityId eid,
+      KeyValueStoreReaderFactory factory) {
     mEntityId = eid;
     mWriter = table.openTableWriter();
     mFamily = Preconditions.checkNotNull(outputColumn.getFamily());
     mQualifier = outputColumn.getQualifier();
+    mFactory = Preconditions.checkNotNull(factory);
   }
 
   /**
@@ -66,17 +73,12 @@ public final class KijiFreshProducerContext implements ProducerContext {
    * @param table the table to write into.
    * @param outputColumn the column to which to write.
    * @param eid the EntityId of the row to which to write.
+   * @param factory a factory of kv-store readers.
    * @return the new KijiFreshProducerContext.
    */
-  public static KijiFreshProducerContext create(
-      KijiTable table, KijiColumnName outputColumn, EntityId eid) {
-    return new KijiFreshProducerContext(table, outputColumn, eid);
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public EntityId getEntityId() {
-    return mEntityId;
+  public static KijiFreshProducerContext create(KijiTable table, KijiColumnName outputColumn,
+      EntityId eid, KeyValueStoreReaderFactory factory) {
+    return new KijiFreshProducerContext(table, outputColumn, eid, factory);
   }
 
   /** {@inheritDoc} */
@@ -111,48 +113,36 @@ public final class KijiFreshProducerContext implements ProducerContext {
   /** {@inheritDoc} */
   @Override
   public <K, V> KeyValueStoreReader<K, V> getStore(final String s) throws IOException {
-    return null;  //To change body of implemented methods use File | Settings | File Templates.
+    return mFactory.openStore(s);
   }
 
   /** {@inheritDoc} */
   @Override
-  public void incrementCounter(final Enum<?> anEnum) {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void incrementCounter(final Enum<?> anEnum) { }
 
   /** {@inheritDoc} */
   @Override
-  public void incrementCounter(final Enum<?> anEnum, final long l) {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void incrementCounter(final Enum<?> anEnum, final long l) { }
 
   /** {@inheritDoc} */
   @Override
-  public void progress() {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void progress() { }
 
   /** {@inheritDoc} */
   @Override
-  public void setStatus(final String s) throws IOException {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void setStatus(final String s) throws IOException { }
 
   /** {@inheritDoc} */
   @Override
   public String getStatus() {
-    return null;  //To change body of implemented methods use File | Settings | File Templates.
+    return null;
   }
 
   /** {@inheritDoc} */
   @Override
-  public void close() throws IOException {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void close() throws IOException { }
 
   /** {@inheritDoc} */
   @Override
-  public void flush() throws IOException {
-    //To change body of implemented methods use File | Settings | File Templates.
-  }
+  public void flush() throws IOException { }
 }

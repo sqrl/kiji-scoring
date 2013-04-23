@@ -23,6 +23,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.kiji.mapreduce.kvstore.KeyValueStore;
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.mapreduce.produce.ProducerContext;
 import org.kiji.schema.EntityId;
@@ -107,6 +109,9 @@ public class TestInternalFreshKijiTableReader {
     }
     public KijiDataRequest getDataRequest() {
       return KijiDataRequest.create("info", "name");
+    }
+    public Map<String, KeyValueStore<?, ?>> getRequiredStores() {
+      return Collections.emptyMap();
     }
     public String store() {
       return null;

@@ -18,8 +18,12 @@
  */
 package org.kiji.scoring;
 
+import java.util.Collections;
+import java.util.Map;
+
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
+import org.kiji.mapreduce.kvstore.KeyValueStore;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 
@@ -45,6 +49,12 @@ public final class NeverFreshen implements KijiFreshnessPolicy {
   @Override
   public KijiDataRequest getDataRequest() {
     return null;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Map<String, KeyValueStore<?, ?>> getRequiredStores() {
+    return Collections.emptyMap();
   }
 
   /** {@inheritDoc} */

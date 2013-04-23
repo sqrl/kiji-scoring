@@ -37,6 +37,8 @@ import org.slf4j.LoggerFactory;
 
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
+import org.kiji.mapreduce.kvstore.KeyValueStore;
+import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory;
 import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.EntityId;
 import org.kiji.schema.InternalKijiError;
@@ -48,7 +50,6 @@ import org.kiji.schema.KijiRowScanner;
 import org.kiji.schema.KijiTable;
 import org.kiji.schema.KijiTableReader;
 import org.kiji.scoring.FreshKijiTableReader;
-import org.kiji.scoring.KijiFreshProducerContext;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.PolicyContext;
@@ -74,6 +75,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   /** Timeout duration for get requests. */
   private final int mTimeout;
 
+  // TODO(SCORING-11): Refactor these maps into a single member for less overhead.
   /**
    * Map from column names to freshness policy records. Created on initialization of the
    * FreshKijiTableReader with all freshness policies for the entire table.  Only recreated when
@@ -84,8 +86,11 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   /** Cache of freshness policy instances indexed by column names. Lazily populated as needed. */
   private final Map<KijiColumnName, KijiFreshnessPolicy> mPolicyCache;
 
-  /** Cache of Producer objects indexed by column name.  Lazily populated as needed. */
+  /** Cache of Producer objects indexed by column name. Lazily populated as needed. */
   private final Map<KijiColumnName, KijiProducer> mProducerCache;
+
+  /** Cache of KeyValueStoreReaderFactorys.  Lazily populated as needed. */
+  private final Map<KijiColumnName, KeyValueStoreReaderFactory>  mFactoryCache;
 
   /**
    * Creates a new <code>InternalFreshKijiTableReader</code> instance that sends read requests
@@ -108,6 +113,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     mPolicyRecords = manager.retrievePolicies(mTable.getName());
     mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
+    mFactoryCache = new HashMap<KijiColumnName, KeyValueStoreReaderFactory>();
   }
 
   /**
@@ -133,14 +139,16 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    *
    * @param dataRequest the data request for which to find freshness policies.
    * @return A map from column name to KijiFreshnessPolicy.
+   * @throws IOException if an error occurs while setting up a producer.
    *
    * Package private for testing purposes only, should not be accessed externally.
    */
-  Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest) {
+  Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest)
+      throws IOException {
     final Collection<Column> columns = dataRequest.getColumns();
     final Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-    for (Column column: columns) {
+    for (Column column : columns) {
       if (mPolicyCache.containsKey(column.getColumnName())) {
         policies.put(column.getColumnName(), mPolicyCache.get(column.getColumnName()));
       } else {
@@ -152,6 +160,21 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           // Add the policy to the list of policies applicable to this data request.
           policies.put(column.getColumnName(), policy);
           mPolicyCache.put(column.getColumnName(), policy);
+
+          // Instantiate and initialize the producer. Add it to the store.
+          final KijiProducer producer = producerForName(record.getProducerClass());
+          producer.setup(null);
+          mProducerCache.put(column.getColumnName(), producer);
+
+          // Create a kvstore reader factory for this policy and populate it with
+          // required stores.
+          final Map<String, KeyValueStore<?, ?>> kvMap = new HashMap<String, KeyValueStore<?, ?>>();
+          kvMap.putAll(producer.getRequiredStores());
+          kvMap.putAll(policy.getRequiredStores());
+          KeyValueStoreReaderFactory factory = KeyValueStoreReaderFactory.create(kvMap);
+          mFactoryCache.put(column.getColumnName(), factory);
+          kvMap.clear();
+
         }
       }
     }
@@ -258,15 +281,8 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
               return Boolean.FALSE;
             } else {
               final KijiFreshProducerContext context =
-                  KijiFreshProducerContext.create(mTable, key, eid);
-              final KijiProducer producer;
-              if (mProducerCache.containsKey(key)) {
-                producer = mProducerCache.get(key);
-              } else {
-                producer = producerForName(mPolicyRecords.get(key).getProducerClass());
-                producer.setup(context);
-                mProducerCache.put(key, producer);
-              }
+                  KijiFreshProducerContext.create(mTable, key, eid, mFactoryCache.get(key));
+              final KijiProducer producer = mProducerCache.get(key);
               producer.produce(mReader.get(eid, producer.getDataRequest()), context);
 
               // If a producer runs, return true to indicate a reread is necessary.  This assumes
@@ -294,15 +310,8 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
             return Boolean.FALSE;
           } else {
             final KijiFreshProducerContext context =
-                KijiFreshProducerContext.create(mTable, key, eid);
-            final KijiProducer producer;
-            if (mProducerCache.containsKey(key)) {
-              producer = mProducerCache.get(key);
-            } else {
-              producer = producerForName(mPolicyRecords.get(key).getProducerClass());
-              producer.setup(context);
-              mProducerCache.put(key, producer);
-            }
+                KijiFreshProducerContext.create(mTable, key, eid, mFactoryCache.get(key));
+            final KijiProducer producer = mProducerCache.get(key);
             producer.produce(mReader.get(eid, producer.getDataRequest()), context);
             // If a producer runs, return true to indicate that a reread is necessary.  This assumes
             // the producer will write to the requested cells, eventually it may be appropriate
@@ -508,6 +517,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     // Cleanup all cached producers.
     for (KijiColumnName key : mProducerCache.keySet()) {
       mProducerCache.get(key).cleanup(null);
+      mFactoryCache.get(key).close();
     }
     // Closing the reader releases the underlying table reference, so we do not have to release it
     // manually.
