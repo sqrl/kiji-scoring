@@ -29,13 +29,13 @@ import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
 import org.kiji.schema.KijiTableReader;
 
+// TODO actually make FreshKijiTableReaderFactory
 /**
  * Interface for reading freshened data from a Kiji Table.
  *
  * <p>
  *   Utilizes {@link org.kiji.schema.EntityId} and {@link org.kiji.schema.KijiDataRequest}
  *   to return {@link org.kiji.schema.KijiRowData}.  Accessible via
- * TODO actually make FreshKijiTableReaderFactory
  *   {@link FreshKijiTableReaderFactory#openFreshReader(org.kiji.schema.KijiTable)}.
  * </p>
  *

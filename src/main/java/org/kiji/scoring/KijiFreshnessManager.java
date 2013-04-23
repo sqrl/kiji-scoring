@@ -50,7 +50,7 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  * metatable.
  *
  * <p>Instance of class are not thread-safe. Since this class maintains a connection to the
- * metatable clients should call {@link close()} when finished with this class.</p>
+ * metatable clients should call {@link #close()} when finished with this class.</p>
  */
 @ApiAudience.Public
 @ApiStability.Experimental

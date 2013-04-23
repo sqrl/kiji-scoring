@@ -35,7 +35,7 @@ import org.kiji.schema.KijiDataRequest;
 public interface PolicyContext {
 
   /**
-   * Get the KijiDataRequest issued by the client for this.
+   * Get the KijiDataRequest which triggered this freshness check.
    *
    * @return The KijiDataRequest issued by the client for this.
    */

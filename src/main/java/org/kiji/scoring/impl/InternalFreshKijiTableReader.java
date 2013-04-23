@@ -75,7 +75,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   /** Timeout duration for get requests. */
   private final int mTimeout;
 
-  // TODO(SCORING-11): Refactor these maps into a single member for less overhead.
   /**
    * Map from column names to freshness policy records. Created on initialization of the
    * FreshKijiTableReader with all freshness policies for the entire table.  Only recreated when
@@ -83,14 +82,60 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    */
   private final Map<KijiColumnName, KijiFreshnessPolicyRecord> mPolicyRecords;
 
-  /** Cache of freshness policy instances indexed by column names. Lazily populated as needed. */
-  private final Map<KijiColumnName, KijiFreshnessPolicy> mPolicyCache;
+  /**
+   * Cache of FreshnessCapsules containing a KijiFreshnessPolicy, a KijiProducer, and a
+   * KeyValueStoreReaderFactory.  Lazily populated as needed.
+   */
+  private final Map<KijiColumnName, FreshnessCapsule> mCapsuleCache;
 
-  /** Cache of Producer objects indexed by column name. Lazily populated as needed. */
-  private final Map<KijiColumnName, KijiProducer> mProducerCache;
+  /**
+   * Container class for KijiFreshnessPolicy and associated KijiProducer and
+   * KeyValueStoreReaderFactory.
+   */
+  private static final class FreshnessCapsule {
+    private final KijiFreshnessPolicy mPolicy;
+    private final KijiProducer mProducer;
+    private final KeyValueStoreReaderFactory mFactory;
 
-  /** Cache of KeyValueStoreReaderFactorys.  Lazily populated as needed. */
-  private final Map<KijiColumnName, KeyValueStoreReaderFactory>  mFactoryCache;
+    /**
+     * Default Constructor.
+     * @param policy the KijiFreshnessPolicy to store.
+     * @param producer the KijiProducer to store.
+     * @param factory the KeyValueStoreReaderFactory to store.
+     */
+    public FreshnessCapsule(
+        final KijiFreshnessPolicy policy,
+        final KijiProducer producer,
+        final KeyValueStoreReaderFactory factory) {
+      mPolicy = policy;
+      mProducer = producer;
+      mFactory = factory;
+    }
+
+    /**
+     * Get the KijiFreshnessPolicy.
+     * @return the KijiFreshnessPolicy.
+     */
+    public KijiFreshnessPolicy getPolicy() {
+      return mPolicy;
+    }
+
+    /**
+     * Get the KijiProducer.
+     * @return the KijiProducer.
+     */
+    public KijiProducer getProducer() {
+      return mProducer;
+    }
+
+    /**
+     * Get the KeyValueStoreReaderFactory.
+     * @return the KeyValueStoreReaderFactory.
+     */
+    public KeyValueStoreReaderFactory getFactory() {
+      return mFactory;
+    }
+  }
 
   /**
    * Creates a new <code>InternalFreshKijiTableReader</code> instance that sends read requests
@@ -111,9 +156,10 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     mTimeout = timeout;
     final KijiFreshnessManager manager = KijiFreshnessManager.create(table.getKiji());
     mPolicyRecords = manager.retrievePolicies(mTable.getName());
-    mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-    mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
-    mFactoryCache = new HashMap<KijiColumnName, KeyValueStoreReaderFactory>();
+//    mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
+//    mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
+//    mFactoryCache = new HashMap<KijiColumnName, KeyValueStoreReaderFactory>();
+    mCapsuleCache = new HashMap<KijiColumnName, FreshnessCapsule>();
   }
 
   /**
@@ -149,8 +195,8 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     final Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     for (Column column : columns) {
-      if (mPolicyCache.containsKey(column.getColumnName())) {
-        policies.put(column.getColumnName(), mPolicyCache.get(column.getColumnName()));
+      if (mCapsuleCache.containsKey(column.getColumnName())) {
+        policies.put(column.getColumnName(), mCapsuleCache.get(column.getColumnName()).getPolicy());
       } else {
         final KijiFreshnessPolicyRecord record = mPolicyRecords.get(column.getColumnName());
         if (record != null) {
@@ -159,12 +205,10 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           policy.load(record.getFreshnessPolicyState());
           // Add the policy to the list of policies applicable to this data request.
           policies.put(column.getColumnName(), policy);
-          mPolicyCache.put(column.getColumnName(), policy);
 
           // Instantiate and initialize the producer. Add it to the store.
           final KijiProducer producer = producerForName(record.getProducerClass());
           producer.setup(null);
-          mProducerCache.put(column.getColumnName(), producer);
 
           // Create a kvstore reader factory for this policy and populate it with
           // required stores.
@@ -172,9 +216,11 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           kvMap.putAll(producer.getRequiredStores());
           kvMap.putAll(policy.getRequiredStores());
           KeyValueStoreReaderFactory factory = KeyValueStoreReaderFactory.create(kvMap);
-          mFactoryCache.put(column.getColumnName(), factory);
           kvMap.clear();
 
+          // Encapsulate the policy, producer, and factory and store them in a cache.
+          final FreshnessCapsule capsule = new FreshnessCapsule(policy, producer, factory);
+          mCapsuleCache.put(column.getColumnName(), capsule);
         }
       }
     }
@@ -281,8 +327,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
               return Boolean.FALSE;
             } else {
               final KijiFreshProducerContext context =
-                  KijiFreshProducerContext.create(mTable, key, eid, mFactoryCache.get(key));
-              final KijiProducer producer = mProducerCache.get(key);
+                  KijiFreshProducerContext.create(
+                  mTable, key, eid, mCapsuleCache.get(key).getFactory());
+              final KijiProducer producer = mCapsuleCache.get(key).getProducer();
               producer.produce(mReader.get(eid, producer.getDataRequest()), context);
 
               // If a producer runs, return true to indicate a reread is necessary.  This assumes
@@ -310,8 +357,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
             return Boolean.FALSE;
           } else {
             final KijiFreshProducerContext context =
-                KijiFreshProducerContext.create(mTable, key, eid, mFactoryCache.get(key));
-            final KijiProducer producer = mProducerCache.get(key);
+                KijiFreshProducerContext.create(
+                mTable, key, eid, mCapsuleCache.get(key).getFactory());
+            final KijiProducer producer = mCapsuleCache.get(key).getProducer();
             producer.produce(mReader.get(eid, producer.getDataRequest()), context);
             // If a producer runs, return true to indicate that a reread is necessary.  This assumes
             // the producer will write to the requested cells, eventually it may be appropriate
@@ -366,7 +414,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
       return retVal;
     }
   }
-
 
     /** {@inheritDoc} */
   @Override
@@ -515,9 +562,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   @Override
   public void close() throws IOException {
     // Cleanup all cached producers.
-    for (KijiColumnName key : mProducerCache.keySet()) {
-      mProducerCache.get(key).cleanup(null);
-      mFactoryCache.get(key).close();
+    for (KijiColumnName key : mCapsuleCache.keySet()) {
+      mCapsuleCache.get(key).getProducer().cleanup(null);
+      mCapsuleCache.get(key).getFactory().close();
     }
     // Closing the reader releases the underlying table reference, so we do not have to release it
     // manually.

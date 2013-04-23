@@ -100,7 +100,7 @@ public class TestInternalFreshKijiTableReader {
   }
 
   /** Dummy &lt;? extends KijiProducer&gt; class for testing */
-  private static final class TestAlwaysFresh implements KijiFreshnessPolicy {
+  private static final class TestNeverFreshen implements KijiFreshnessPolicy {
     public boolean isFresh(final KijiRowData rowData, final PolicyContext policyContext) {
       return true;
     }
@@ -230,7 +230,7 @@ public class TestInternalFreshKijiTableReader {
 
     // Add two freshness policies.
     usesClientDataRequest.put(new KijiColumnName("info", "name"), new NeverFreshen());
-    usesOwnDataRequest.put(new KijiColumnName("info", "name"), new TestAlwaysFresh());
+    usesOwnDataRequest.put(new KijiColumnName("info", "name"), new TestNeverFreshen());
 
     // Get a list of two futures, both are always fresh, so should return false to indicate no
     // reread.
