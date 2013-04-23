@@ -228,9 +228,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
       final EntityId eid,
       final KijiDataRequest clientRequest) {
     final List<Future<Boolean>> futures = Lists.newArrayList();
-    // TODO clientData may be null in the case that usesClientDataRequest is empty, but if something
-    // goes wrong there could be a null pointer in this for loop.  check against null before
-    // proceeding?
     for (final KijiColumnName key: usesClientDataRequest.keySet()) {
       if (clientData == null) {
         throw new InternalKijiError(
@@ -271,9 +268,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
                 mProducerCache.put(key, producer);
               }
               producer.produce(mReader.get(eid, producer.getDataRequest()), context);
-              // TODO: If we only call setup on initialization, do we ever call cleanup? maybe call
-              // in close()
-              producer.cleanup(context);
 
               // If a producer runs, return true to indicate a reread is necessary.  This assumes
               // the producer will write to the requested cells, eventually it may be appropriate
@@ -309,11 +303,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
               producer.setup(context);
               mProducerCache.put(key, producer);
             }
-            // TODO change setup cleanup to not use contexts.  Works now because there aren't any
-            // context calls in setup or cleanup, but there will be thread safety problems if people
-            // actually try to use them.
             producer.produce(mReader.get(eid, producer.getDataRequest()), context);
-            producer.cleanup(context);
             // If a producer runs, return true to indicate that a reread is necessary.  This assumes
             // the producer will write to the requested cells, eventually it may be appropriate
             // to actually check if this is true.
