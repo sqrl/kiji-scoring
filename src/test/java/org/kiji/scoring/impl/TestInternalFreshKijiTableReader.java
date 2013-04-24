@@ -201,7 +201,7 @@ public class TestInternalFreshKijiTableReader {
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
     assertEquals(
         mReader.get(eid, request).getMostRecentValue("info", "name"),
-        mFreshReader.getClientData(eid, request, true).get().getMostRecentValue("info", "name")
+        mFreshReader.getClientData(eid, request).get().getMostRecentValue("info", "name")
     );
   }
 
@@ -220,7 +220,7 @@ public class TestInternalFreshKijiTableReader {
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     final Map<KijiColumnName, KijiFreshnessPolicy> usesOwnDataRequest =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-    final Future<KijiRowData> clientData = mFreshReader.getClientData(eid, request, true);
+    final Future<KijiRowData> clientData = mFreshReader.getClientData(eid, request);
 
     // Get an empty list of futures.
     final List<Future<Boolean>> actual =

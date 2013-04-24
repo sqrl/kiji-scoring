@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.kiji.scoring.impl;
 
 import java.io.IOException;
@@ -235,24 +236,16 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    *
    * @param eid The EntityId specified by the client's call to get().
    * @param dataRequest The client's data request.
-   * @param requiresClientDataRequest whether the client's data request is required for any
-   *   freshness policies.
-   * @return A Future&lt;KijiRowData&gt; representing the data requested by the user, or null if no
-   *   freshness policies require the user's requested data.
+   * @return A Future&lt;KijiRowData&gt; representing the data requested by the user.
    *
    * Package private for testing purposes only, should not be accessed externally.
    */
-  Future<KijiRowData> getClientData(
-      final EntityId eid, final KijiDataRequest dataRequest, boolean requiresClientDataRequest) {
-    Future<KijiRowData> clientData = null;
-    if (requiresClientDataRequest) {
-      clientData = mExecutor.submit(new Callable<KijiRowData>() {
-        public KijiRowData call() throws IOException {
-          return mReader.get(eid, dataRequest);
-        }
-      });
-    }
-    return clientData;
+  Future<KijiRowData> getClientData(final EntityId eid, final KijiDataRequest dataRequest) {
+    return mExecutor.submit(new Callable<KijiRowData>() {
+      public KijiRowData call() throws IOException {
+        return mReader.get(eid, dataRequest);
+      }
+    });
   }
 
   /**
@@ -438,8 +431,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
       }
     }
 
-    final Future<KijiRowData> clientData =
-        getClientData(eid, dataRequest, usesClientDataRequest.size() > 0);
+    final Future<KijiRowData> clientData = getClientData(eid, dataRequest);
     final List<Future<Boolean>> futures =
         getFutures(usesClientDataRequest, usesOwnDataRequest, clientData, eid, dataRequest);
 
@@ -450,23 +442,25 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
         // If superFuture returns true to indicate the need for a reread, do so.
         return mReader.get(eid, dataRequest);
       } else {
-        if (clientData != null) {
-          // If superFuture returns false and the client's data request has already been issued,
-          // return it.
-          return clientData.get();
-        } else {
-          // If the client's data request has not be issued, issue it.
-          return mReader.get(eid, dataRequest);
-        }
+        return clientData.get();
       }
     } catch (InterruptedException ie) {
       throw new RuntimeException("Freshening thread interrupted.", ie);
     } catch (ExecutionException ee) {
       throw new RuntimeException(ee);
     } catch (TimeoutException te) {
-      // If superFuture times out, we cannot know the exact state of all freshening producers.
-      // Reread from the table to guarantee newest data.
-      return mReader.get(eid, dataRequest);
+      // If superFuture times out, return cached stale data.
+      try {
+        return clientData.get();
+      } catch (InterruptedException ie) {
+        throw new RuntimeException("Freshening thread interrupted.", ie);
+      } catch (ExecutionException ee) {
+        if (ee.getCause() instanceof IOException) {
+          return mReader.get(eid, dataRequest);
+        } else {
+          throw new RuntimeException(ee);
+        }
+      }
     }
   }
 
