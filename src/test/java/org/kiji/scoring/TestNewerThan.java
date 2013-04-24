@@ -93,11 +93,11 @@ public final class TestNewerThan extends KijiClientTest {
     final PolicyContext context =
         new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
     final NewerThan policy = new NewerThan();
-    policy.load("1");
+    policy.deserialize("1");
 
     assertTrue(policy.isFresh(rowData, context));
 
-    policy.load("10");
+    policy.deserialize("10");
     assertFalse(policy.isFresh(rowData, context));
   }
 }

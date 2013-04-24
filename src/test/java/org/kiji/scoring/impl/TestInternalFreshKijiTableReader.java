@@ -113,10 +113,10 @@ public class TestInternalFreshKijiTableReader {
     public Map<String, KeyValueStore<?, ?>> getRequiredStores() {
       return Collections.emptyMap();
     }
-    public String store() {
+    public String serialize() {
       return null;
     }
-    public void load(final String policyState) {}
+    public void deserialize(final String policyState) {}
   }
 
   private Kiji mKiji;

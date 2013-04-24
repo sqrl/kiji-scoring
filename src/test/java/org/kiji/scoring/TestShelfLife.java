@@ -92,11 +92,11 @@ public class TestShelfLife {
     final PolicyContext context =
         new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
     final ShelfLife policy = new ShelfLife();
-    policy.load(String.valueOf(Long.MAX_VALUE));
+    policy.deserialize(String.valueOf(Long.MAX_VALUE));
 
     assertTrue(policy.isFresh(rowData, context));
 
-    policy.load(String.valueOf(Long.MIN_VALUE));
+    policy.deserialize(String.valueOf(Long.MIN_VALUE));
     assertFalse(policy.isFresh(rowData, context));
   }
 }

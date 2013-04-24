@@ -137,7 +137,7 @@ public final class KijiFreshnessManager implements Closeable {
         .setRecordVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
         .setProducerClass(producerClass.getName())
         .setFreshnessPolicyClass(policy.getClass().getName())
-        .setFreshnessPolicyState(policy.store())
+        .setFreshnessPolicyState(policy.serialize())
         .build();
 
     mOutputStream.reset();

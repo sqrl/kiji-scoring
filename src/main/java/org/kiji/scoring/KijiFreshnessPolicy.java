@@ -44,7 +44,7 @@ import org.kiji.schema.KijiRowData;
  * {@link #getDataRequest()} is not null.
  *
  * KijiFreshnessPolicies are responsible for serializing and deserializing their own state using
- * {@link #store()} and {@link #load(String)} methods.
+ * {@link #serialize()} and {@link #deserialize(String)} methods.
  */
 @ApiAudience.Public
 @ApiStability.Experimental
@@ -90,12 +90,12 @@ public interface KijiFreshnessPolicy extends KeyValueStoreClient {
    *
    * @return A string representing any required state for this freshness policy.
    */
-  String store();
+  String serialize();
 
   /**
    * Deserializes state from a {@link org.kiji.schema.KijiMetaTable} and initializes this freshness
    * policy with that state.
    * @param policyState Serialized string retrieved from a KijiMetaTable.
    */
-  void load(String policyState);
+  void deserialize(String policyState);
 }

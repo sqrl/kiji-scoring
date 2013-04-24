@@ -60,14 +60,14 @@ public final class AlwaysFreshen implements KijiFreshnessPolicy {
 
   /** {@inheritDoc} */
   @Override
-  public String store() {
+  public String serialize() {
     // Return the empty string because AlwaysFreshen requires no state.
     return "";
   }
 
   /** {@inheritDoc} */
   @Override
-  public void load(String policyState) {
+  public void deserialize(String policyState) {
     // empty because this policy has no state.
   }
 }

@@ -40,13 +40,13 @@ public class NewerThan implements KijiFreshnessPolicy {
   private long mNewerThanTimestamp = -1;
 
   /**
-   * Default empty constructor for automatic construction. User must call {@link #load(String)} to
-   * initialize state.
+   * Default empty constructor for automatic construction. User must call
+   * {@link #deserialize(String)} to initialize state.
    */
   public NewerThan() {}
 
   /**
-   * Constructor which initializes all state.  No call to {@link #load(String)} is necessary.
+   * Constructor which initializes all state.  No call to {@link #deserialize(String)} is necessary.
    *
    * @param newerThan the unix time in milliseconds before which data is stale.
    */
@@ -59,7 +59,8 @@ public class NewerThan implements KijiFreshnessPolicy {
   public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     final KijiColumnName columnName = policyContext.getAttachedColumn();
     if (mNewerThanTimestamp == -1) {
-      throw new RuntimeException("Newer than timestamp not set.  Did you call NewerThan.load()?");
+      throw new RuntimeException(
+          "Newer than timestamp not set.  Did you call NewerThan.deserialize()?");
     }
     if (columnName == null) {
       throw new RuntimeException("Target column was not set in the PolicyContext.");
@@ -96,14 +97,14 @@ public class NewerThan implements KijiFreshnessPolicy {
 
   /** {@inheritDoc} */
   @Override
-  public String store() {
+  public String serialize() {
     // The only required state is the newer than timestamp.
     return String.valueOf(mNewerThanTimestamp);
   }
 
   /** {@inheritDoc} */
   @Override
-  public void load(String policyState) {
+  public void deserialize(String policyState) {
     // Load the newer than timestamp from the policy state.
     mNewerThanTimestamp = Long.parseLong(policyState);
   }

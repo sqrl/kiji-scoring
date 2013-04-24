@@ -100,9 +100,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
 
     /**
      * Default Constructor.
-     * @param policy the KijiFreshnessPolicy to store.
-     * @param producer the KijiProducer to store.
-     * @param factory the KeyValueStoreReaderFactory to store.
+     * @param policy the KijiFreshnessPolicy to serialize.
+     * @param producer the KijiProducer to serialize.
+     * @param factory the KeyValueStoreReaderFactory to serialize.
      */
     public FreshnessCapsule(
         final KijiFreshnessPolicy policy,
@@ -203,11 +203,11 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
         if (record != null) {
           // Instantiate and initialize the policies.
           final KijiFreshnessPolicy policy = policyForName(record.getFreshnessPolicyClass());
-          policy.load(record.getFreshnessPolicyState());
+          policy.deserialize(record.getFreshnessPolicyState());
           // Add the policy to the list of policies applicable to this data request.
           policies.put(column.getColumnName(), policy);
 
-          // Instantiate and initialize the producer. Add it to the store.
+          // Instantiate and initialize the producer. Add it to the serialize.
           final KijiProducer producer = producerForName(record.getProducerClass());
           producer.setup(null);
 
@@ -219,7 +219,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           KeyValueStoreReaderFactory factory = KeyValueStoreReaderFactory.create(kvMap);
           kvMap.clear();
 
-          // Encapsulate the policy, producer, and factory and store them in a cache.
+          // Encapsulate the policy, producer, and factory and serialize them in a cache.
           final FreshnessCapsule capsule = new FreshnessCapsule(policy, producer, factory);
           mCapsuleCache.put(column.getColumnName(), capsule);
         }

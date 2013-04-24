@@ -80,7 +80,7 @@ public class IntegrationTestFreshnessDemo  extends AbstractKijiIntegrationTest {
     final KijiTable table = kiji.openTable("user");
     // Get a KijiFreshnessManager for the Kiji instance.
     final KijiFreshnessManager manager = KijiFreshnessManager.create(kiji);
-    // Create a ShelfLife freshness policy and load a 1 day shelf life duration.
+    // Create a ShelfLife freshness policy and deserialize a 1 day shelf life duration.
     final KijiFreshnessPolicy policy = new ShelfLife(86400000);
     // Store the freshness policy in the meta table for the table "user" and column "info:visits"
     // using the ShelfLife freshness policy created above and the DemoProducer.

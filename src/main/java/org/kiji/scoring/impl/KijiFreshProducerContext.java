@@ -55,7 +55,7 @@ public final class KijiFreshProducerContext implements ProducerContext {
    * @param table the target table.
    * @param outputColumn the target column.
    * @param eid the target EntityId.
-   * @param factory a factory of kv-store readers.
+   * @param factory a factory of kv-serialize readers.
    */
   private KijiFreshProducerContext(KijiTable table, KijiColumnName outputColumn, EntityId eid,
       KeyValueStoreReaderFactory factory) {
@@ -73,7 +73,7 @@ public final class KijiFreshProducerContext implements ProducerContext {
    * @param table the table to write into.
    * @param outputColumn the column to which to write.
    * @param eid the EntityId of the row to which to write.
-   * @param factory a factory of kv-store readers.
+   * @param factory a factory of kv-serialize readers.
    * @return the new KijiFreshProducerContext.
    */
   public static KijiFreshProducerContext create(KijiTable table, KijiColumnName outputColumn,
