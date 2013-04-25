@@ -24,6 +24,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -76,6 +78,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   /** Timeout duration for get requests. */
   private final int mTimeout;
 
+  /** Time between automatically reloading freshness policies from the metatable in milliseconds. */
+  private final int mReloadTime;
+
   /**
    * Map from column names to freshness policy records. Created on initialization of the
    * FreshKijiTableReader with all freshness policies for the entire table.  Only recreated when
@@ -88,6 +93,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    * KeyValueStoreReaderFactory.  Lazily populated as needed.
    */
   private final Map<KijiColumnName, FreshnessCapsule> mCapsuleCache;
+
+  /** TimerTask for automatically reloading freshness policies on a schedule. */
+  private final ReloadTask mReloadTask;
 
   /**
    * Container class for KijiFreshnessPolicy and associated KijiProducer and
@@ -138,18 +146,49 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     }
   }
 
+  /** TimerTask for reloading freshness policies automatically on a schedule. */
+  private final class ReloadTask extends TimerTask {
+    /** Method to run when the task executes. */
+    public void run() {
+      try {
+        reloadPolicies();
+      } catch (IOException ioe) {
+        LOG.warn("Failed to reload freshness policies.  Will attempt again in {} milliseconds",
+            mReloadTime);
+      }
+    }
+  }
+
   /**
    * Creates a new <code>InternalFreshKijiTableReader</code> instance that sends read requests
-   * to an HBase table and performs freshening on the returned data.
+   * to a Kiji table and performs freshening on the returned data.  Never automatically reloads
+   * policies from the metatable.
    *
    * @param table the table that will be read/scored.
    * @param timeout the maximum number of milliseconds to spend trying to score data. If the
-   *   process times out, stale or partially-scored data may be returned by
+   *   process times out, stale data will be returned by
    *   {@link #get(org.kiji.schema.EntityId, org.kiji.schema.KijiDataRequest)} calls.
    * @throws IOException if an error occurs while processing the table or freshness policy.
    */
   // TODO refactor this to a factory
   public InternalFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
+    this(table, timeout, 0);
+  }
+
+  /**
+   * Creates a new <code>InternalFreshKijiTableReader</code> instance that sends read requests
+   * to a Kiji table and performs freshening on the returned data.  Automatically reloads freshness
+   * policies from the metatable on a schedule.
+   *
+   * @param table the Kiji table that will be read/scored.
+   * @param timeout the maximum number of milliseconds to spend trying to score data.  If the
+   *   process times out, stale data will be returned by
+   *   {@link #get(org.kiji.schema.EntityId, org.kiji.schema.KijiDataRequest)} calls.
+   * @param reloadTime The time to wait between automatically reloading freshness policlies.
+   * @throws IOException if an error occurs communicating with the metatable.
+   */
+  public InternalFreshKijiTableReader(KijiTable table, int timeout, int reloadTime)
+      throws IOException {
     mTable = table;
     // opening a reader retains the table, so we do not need to call retain manually.
     mReader = mTable.openTableReader();
@@ -157,10 +196,31 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     mTimeout = timeout;
     final KijiFreshnessManager manager = KijiFreshnessManager.create(table.getKiji());
     mPolicyRecords = manager.retrievePolicies(mTable.getName());
-//    mPolicyCache = new HashMap<KijiColumnName, KijiFreshnessPolicy>();
-//    mProducerCache = new HashMap<KijiColumnName, KijiProducer>();
-//    mFactoryCache = new HashMap<KijiColumnName, KeyValueStoreReaderFactory>();
     mCapsuleCache = new HashMap<KijiColumnName, FreshnessCapsule>();
+    if (reloadTime > 0) {
+      final Timer reloadTimer = new Timer();
+      mReloadTask = new ReloadTask();
+      reloadTimer.scheduleAtFixedRate(mReloadTask, reloadTime, reloadTime);
+      mReloadTime = reloadTime;
+    } else if (reloadTime == 0) {
+      mReloadTask = null;
+      mReloadTime = 0;
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Reload time must be >= 0, found: %d", reloadTime));
+    }
+  }
+
+  /**
+   * Clear all freshness policies from the local cache and retrieve new policies from the metatable.
+   *
+   * @throws IOException in case of an error reading from the metatable.
+   */
+  public synchronized void reloadPolicies() throws IOException {
+    mPolicyRecords.clear();
+    mPolicyRecords.putAll(
+        KijiFreshnessManager.create(mTable.getKiji()).retrievePolicies(mTable.getName()));
+    mCapsuleCache.clear();
   }
 
   /**
@@ -192,6 +252,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    */
   Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest)
       throws IOException {
+    if (mPolicyRecords == null) {
+      return null;
+    }
     final Collection<Column> columns = dataRequest.getColumns();
     final Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
@@ -415,7 +478,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     final Map<KijiColumnName, KijiFreshnessPolicy> policies = getPolicies(dataRequest);
     // If there are no freshness policies attached to the requested columns, return the requested
     // data.
-    if (policies.size() == 0) {
+    if (policies == null) {
       return mReader.get(eid, dataRequest);
     }
 
@@ -559,6 +622,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     for (KijiColumnName key : mCapsuleCache.keySet()) {
       mCapsuleCache.get(key).getProducer().cleanup(null);
       mCapsuleCache.get(key).getFactory().close();
+    }
+    if (mReloadTask != null) {
+      mReloadTask.cancel();
     }
     // Closing the reader releases the underlying table reference, so we do not have to release it
     // manually.

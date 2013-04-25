@@ -160,6 +160,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @param policyClass the fully qualified class name of the KijiFreshnessPolicy to attach to the
    * column.
    * @param policyState the serialized state of the policy class.
+   * @throws IOException in case of an error writing to the metatable.
    */
   public void storePolicyWithoutChecks(String tableName, String columnName, String producerClass,
       String policyClass, String policyState) throws IOException {
@@ -230,7 +231,11 @@ public final class KijiFreshnessManager implements Closeable {
         records.put(new KijiColumnName(columnName), retrievePolicy(tableName, columnName));
       }
     }
-    return records;
+    if (records.size() == 0) {
+      return null;
+    } else {
+      return records;
+    }
   }
 
   /**
@@ -254,7 +259,7 @@ public final class KijiFreshnessManager implements Closeable {
   public void removePolicies(String tableName) throws IOException {
     final Set<String> keys = mMetaTable.keySet(tableName);
     for (String key : keys) {
-      if (key.startsWith(METATABLE_KEY_PREFIX + tableName)) {
+      if (key.startsWith(METATABLE_KEY_PREFIX)) {
         mMetaTable.removeValues(tableName, key);
       }
     }

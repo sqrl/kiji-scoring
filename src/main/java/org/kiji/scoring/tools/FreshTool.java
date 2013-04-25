@@ -1,3 +1,22 @@
+/**
+ * (c) Copyright 2013 WibiData, Inc.
+ *
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.kiji.scoring.tools;
 
 import java.io.IOException;
@@ -81,9 +100,11 @@ public class FreshTool extends BaseTool {
    * Register a given freshness policy in the metatable.
    *
    * @param tableName the name of the table
-   * @param policy the KijiFreshnessPolicy to register.
+   * @param columnName the name of the column to which to attach the freshness policy.
    * @param producerClass the KijiProducer to run when a freshness policy triggers.
+   * @param policy the KijiFreshnessPolicy to register.
    * @return the tool return code.
+   * @throws IOException in case of an error writing to the metatable.
    */
   private int registerPolicy(
       String tableName,
@@ -113,7 +134,8 @@ public class FreshTool extends BaseTool {
       final String policyState,
       final String producerClass)
       throws IOException {
-    mManager.storePolicyWithoutChecks(tableName, columnName, producerClass, policyClass, policyState);
+    mManager.storePolicyWithoutChecks(
+        tableName, columnName, producerClass, policyClass, policyState);
     return BaseTool.SUCCESS;
   }
 
@@ -123,6 +145,7 @@ public class FreshTool extends BaseTool {
    * @param tableName the name of the table from which to remove a freshness policy.
    * @param columnName the name of the column from which to remove a freshness policy.
    * @return the tool return code.
+   * @throws IOException in case of an error writing to the metatable.
    */
   private int unregisterPolicy(String tableName, String columnName) throws IOException {
     mManager.removePolicy(tableName, columnName);
@@ -184,6 +207,8 @@ public class FreshTool extends BaseTool {
     return BaseTool.SUCCESS;
   }
 
+  /** {@inheritDoc} */
+  @Override
   public void validateFlags() throws Exception {
     try {
       mDoMode = DoMode.valueOf(mDoFlag.toUpperCase(Locale.ROOT).replace("-", "_"));
@@ -207,7 +232,7 @@ public class FreshTool extends BaseTool {
       throw kurie;
     }
     if ((mDoMode == DoMode.RETRIEVE_ALL || mDoMode == DoMode.UNREGISTER_ALL)
-        && (mURI.getTable() == null || mURI.getColumns() != null)) {
+        && (mURI.getTable() == null || mURI.getColumns().size() != 0)) {
       getPrintStream().format("Retrieve-all requires a KijiURI with a specified table and no "
           + "specified columns.");
       return BaseTool.FAILURE;
@@ -226,9 +251,11 @@ public class FreshTool extends BaseTool {
             for (KijiColumnName column : mURI.getColumns()) {
               retrievePolicy(mURI.getTable(), column.getName());
             }
+            return BaseTool.SUCCESS;
           }
           case RETRIEVE_ALL: {
             retrievePolicies(mURI.getTable());
+            return BaseTool.SUCCESS;
           }
           case REGISTER: {
             Preconditions.checkArgument(nonFlagArgs.size() == 4, "Incorrect number of arguments "
@@ -295,9 +322,11 @@ public class FreshTool extends BaseTool {
             for (KijiColumnName column : mURI.getColumns()) {
               unregisterPolicy(mURI.getTable(), column.getName());
             }
+            return BaseTool.SUCCESS;
           }
           case UNREGISTER_ALL: {
             mManager.removePolicies(mURI.getTable());
+            return BaseTool.SUCCESS;
           }
           default: {
             // TODO improve this error.
