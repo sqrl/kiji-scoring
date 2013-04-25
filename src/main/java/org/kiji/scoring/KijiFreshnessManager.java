@@ -148,6 +148,42 @@ public final class KijiFreshnessManager implements Closeable {
   }
 
   /**
+   * Saves a freshness policy in the metatable without performaing any checks on compatability of
+   * components.
+   *
+   * @param tableName the table name with which the freshness policy should be associated.  Throws
+   * an IOException if the table does not exist.
+   * @param columnName the name of the column with which to associate the freshness policy.  This
+   * may be either a fully qualified column from a group type family, or an unqualified map type
+   * family name.
+   * @param producerClass the fully qualified class name of the producer to use for freshening.
+   * @param policyClass the fully qualified class name of the KijiFreshnessPolicy to attach to the
+   * column.
+   * @param policyState the serialized state of the policy class.
+   */
+  public void storePolicyWithoutChecks(String tableName, String columnName, String producerClass,
+      String policyClass, String policyState) throws IOException {
+    if (!mMetaTable.tableExists(tableName)) {
+      throw new KijiTableNotFoundException("Couldn't find table: " + tableName);
+    }
+    // This code will throw an invalid name if there's something wrong with this columnName string.
+    KijiColumnName kcn = new KijiColumnName(columnName);
+    //TODO(Scoring-10): Check the column name against the current version of the table.
+    KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
+        .setRecordVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
+        .setProducerClass(producerClass)
+        .setFreshnessPolicyClass(policyClass)
+        .setFreshnessPolicyState(policyState)
+        .build();
+
+    mOutputStream.reset();
+    Encoder encoder = mEncoderFactory.directBinaryEncoder(mOutputStream, null);
+    mRecordWriter.write(record, encoder);
+    mMetaTable.putValue(tableName, getMetaTableKey(columnName),
+        mOutputStream.toByteArray());
+  }
+
+  /**
    * Retrieves a freshness policy record for a tablename and column. Will return null if there is
    * no freshness policy registered for that column.
    *
@@ -159,7 +195,18 @@ public final class KijiFreshnessManager implements Closeable {
    */
   public KijiFreshnessPolicyRecord retrievePolicy(
       String tableName, String columnName) throws IOException {
-    final byte[] recordBytes = mMetaTable.getValue(tableName, getMetaTableKey(columnName));
+    final byte[] recordBytes;
+    try {
+      recordBytes = mMetaTable.getValue(tableName, getMetaTableKey(columnName));
+    } catch (IOException ioe) {
+      if (ioe.getMessage().equals(String.format(
+          "Could not find any values associated with table %s and key %s", tableName,
+          getMetaTableKey(columnName)))) {
+        return null;
+      } else {
+        throw ioe;
+      }
+    }
     Decoder decoder = mDecoderFactory.binaryDecoder(recordBytes, null);
     return mRecordReader.read(null, decoder);
   }
@@ -199,6 +246,21 @@ public final class KijiFreshnessManager implements Closeable {
   }
 
   /**
+   * Remove all freshness policies for a given table.
+   *
+   * @param tableName the table from which to remove all freshness policies.
+   * @throws IOException in case of an error reading from the metatable.
+   */
+  public void removePolicies(String tableName) throws IOException {
+    final Set<String> keys = mMetaTable.keySet(tableName);
+    for (String key : keys) {
+      if (key.startsWith(METATABLE_KEY_PREFIX + tableName)) {
+        mMetaTable.removeValues(tableName, key);
+      }
+    }
+  }
+
+  /**
    * Closes the manager, freeing resources.
    *
    * @throws IOException if an error occurs.
@@ -216,4 +278,7 @@ public final class KijiFreshnessManager implements Closeable {
   private String getMetaTableKey(String columnName) {
     return METATABLE_KEY_PREFIX + columnName;
   }
+
+  // TODO add String only register methods, basically force register
+  // TODO add removeAll?
 }
