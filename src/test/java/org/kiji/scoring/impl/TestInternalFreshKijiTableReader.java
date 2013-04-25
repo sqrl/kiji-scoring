@@ -21,6 +21,7 @@ package org.kiji.scoring.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -58,6 +59,7 @@ import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.NeverFreshen;
+import org.kiji.scoring.NewerThan;
 import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.ShelfLife;
 
@@ -384,6 +386,19 @@ public class TestInternalFreshKijiTableReader {
   }
 
   @Test
+  public void testReload() throws IOException {
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, new ShelfLife(10L));
+    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 100);
+    assertTrue(freshReader.getPolicies(KijiDataRequest.create("info", "name"))
+        .containsKey(new KijiColumnName("info", "name")));
+    manager.removePolicy("user", "info:name");
+    freshReader.reloadPolicies();
+    assertFalse(freshReader.getPolicies(KijiDataRequest.create("info", "name"))
+        .containsKey(new KijiColumnName("info", "name")));
+  }
+
+  @Test
   public void testAutomaticReload() throws IOException, InterruptedException {
     final EntityId eid = mTable.getEntityId("foo");
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
@@ -392,10 +407,10 @@ public class TestInternalFreshKijiTableReader {
     final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
     manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
 
-    FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000, 2000);
+    FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000, 1000);
 
     // Register a new freshness policy
-    manager.storePolicy("user", "info:name", TestProducerTwo.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info:name", TestProducerTwo.class, new NewerThan(Long.MAX_VALUE));
 
     // Assert that data is written according to the old freshness policy.
     assertEquals("new-val",
@@ -403,7 +418,7 @@ public class TestInternalFreshKijiTableReader {
 
     // Wait until an automatic reload has happened then assert that data is written according to the
     // new freshness policy.
-    Thread.sleep(2500);
+    Thread.sleep(1500);
     assertEquals("two-val",
         freshReader.get(eid, request).getMostRecentValue("info", "name").toString());
   }

@@ -187,7 +187,7 @@ public class FreshTool extends BaseTool {
   private int retrievePolicies(String tableName) throws IOException {
     final Map<KijiColumnName, KijiFreshnessPolicyRecord> records =
         mManager.retrievePolicies(tableName);
-    if (records == null) {
+    if (records.size() == 0) {
       getPrintStream().format("There are no freshness policy attached to columns in table :%s",
           tableName);
     } else {

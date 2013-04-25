@@ -107,4 +107,11 @@ public interface FreshKijiTableReader extends KijiTableReader {
   @Override
   List<KijiRowData> bulkGet(List<EntityId> entityIds, KijiDataRequest dataRequest)
       throws IOException;
+
+  /**
+   * Clear cached freshness policies and reload from the metatable.
+   *
+   * @throws IOException in case of an error reading from the metatable.
+   */
+  void reloadPolicies() throws IOException;
 }

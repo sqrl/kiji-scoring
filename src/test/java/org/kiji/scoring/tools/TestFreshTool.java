@@ -143,10 +143,10 @@ public class TestFreshTool extends KijiClientTest {
         "--do=retrieve"
     ));
 
-    assertEquals(String.format(
-        "Freshness policy class: org.kiji.scoring.NeverFreshen%n"
-          + "Freshness policy state: %n"
-          + "Producer class: org.kiji.scoring.tools.TestFreshTool$TestProducer"),
+    assertEquals(
+        "Freshness policy class: org.kiji.scoring.NeverFreshen\n"
+        + "Freshness policy state: \n"
+        + "Producer class: org.kiji.scoring.tools.TestFreshTool$TestProducer",
         mToolOutputStr);
   }
 
@@ -188,6 +188,22 @@ public class TestFreshTool extends KijiClientTest {
         "--do=unregister-all"
     ));
 
-    assertEquals(null, manager.retrievePolicies("user"));
+    assertEquals(0,
+        manager.retrievePolicies("user").size());
+  }
+
+  @Test
+  public void testRegisterInvalidColumn() throws Exception {
+
+  }
+
+  @Test
+  public void testRetrieveEmpty() throws Exception {
+
+  }
+
+  @Test
+  public void testRetrieveAllEmpty() throws Exception {
+
   }
 }

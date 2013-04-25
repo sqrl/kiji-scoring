@@ -211,16 +211,35 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     }
   }
 
-  /**
-   * Clear all freshness policies from the local cache and retrieve new policies from the metatable.
-   *
-   * @throws IOException in case of an error reading from the metatable.
-   */
+  /** {@inheritDoc} */
+  @Override
   public synchronized void reloadPolicies() throws IOException {
-    mPolicyRecords.clear();
-    mPolicyRecords.putAll(
-        KijiFreshnessManager.create(mTable.getKiji()).retrievePolicies(mTable.getName()));
-    mCapsuleCache.clear();
+    final Map<KijiColumnName, KijiFreshnessPolicyRecord> newRecords =
+        KijiFreshnessManager.create(mTable.getKiji()).retrievePolicies(mTable.getName());
+    for (Map.Entry<KijiColumnName, KijiFreshnessPolicyRecord> entry : mPolicyRecords.entrySet()) {
+//      // Remove duplicate records from the new record map.
+//      if (newRecords.containsKey(entry.getKey())
+//          && newRecords.get(entry.getKey()) == entry.getValue()) {
+//        newRecords.remove(entry.getKey());
+//      }
+      // Remove records not found in the new map from the cache.
+      if (!newRecords.containsKey(entry.getKey())) {
+        if (mCapsuleCache.containsKey(entry.getKey())) {
+          final FreshnessCapsule capsule = mCapsuleCache.get(entry.getKey());
+          capsule.getFactory().close();
+          capsule.getProducer().cleanup(null);
+          mCapsuleCache.remove(entry.getKey());
+        }
+        mPolicyRecords.remove(entry.getKey());
+      }
+      if (mCapsuleCache.containsKey(entry.getKey())) {
+        final FreshnessCapsule capsule = mCapsuleCache.get(entry.getKey());
+        capsule.getFactory().close();
+        capsule.getProducer().cleanup(null);
+        mCapsuleCache.remove(entry.getKey());
+      }
+    }
+    mPolicyRecords.putAll(newRecords);
   }
 
   /**
@@ -243,6 +262,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
 
   /**
    * Gets all freshness policies from the local cache necessary to validate a given data request.
+   * Returns an empty Map if there are no policies applicable to the data request.
    *
    * @param dataRequest the data request for which to find freshness policies.
    * @return A map from column name to KijiFreshnessPolicy.
@@ -252,12 +272,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    */
   Map<KijiColumnName, KijiFreshnessPolicy> getPolicies(KijiDataRequest dataRequest)
       throws IOException {
-    if (mPolicyRecords == null) {
-      return null;
-    }
-    final Collection<Column> columns = dataRequest.getColumns();
     final Map<KijiColumnName, KijiFreshnessPolicy> policies =
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
+    final Collection<Column> columns = dataRequest.getColumns();
     for (Column column : columns) {
       if (mCapsuleCache.containsKey(column.getColumnName())) {
         policies.put(column.getColumnName(), mCapsuleCache.get(column.getColumnName()).getPolicy());
@@ -478,7 +495,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     final Map<KijiColumnName, KijiFreshnessPolicy> policies = getPolicies(dataRequest);
     // If there are no freshness policies attached to the requested columns, return the requested
     // data.
-    if (policies == null) {
+    if (policies.size() == 0) {
       return mReader.get(eid, dataRequest);
     }
 

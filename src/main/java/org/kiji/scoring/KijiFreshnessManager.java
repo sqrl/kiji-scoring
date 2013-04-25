@@ -197,6 +197,8 @@ public final class KijiFreshnessManager implements Closeable {
   public KijiFreshnessPolicyRecord retrievePolicy(
       String tableName, String columnName) throws IOException {
     final byte[] recordBytes;
+    // TODO(Schema-341) stop catching IOException and replace with checking for null.
+    // recordBytes = mMetaTable.getValue(tableName, getMetaTableKey(columnName));
     try {
       recordBytes = mMetaTable.getValue(tableName, getMetaTableKey(columnName));
     } catch (IOException ioe) {
@@ -213,8 +215,8 @@ public final class KijiFreshnessManager implements Closeable {
   }
 
   /**
-   * Retrieves all freshness policy records for a table.  Will return null if there are no freshness
-   * policies registered for that table.
+   * Retrieves all freshness policy records for a table.  Will return an empty map if there are no
+   * freshness policies registered for that table.
    *
    * @param tableName the table name.
    * @return a Map from KijiColumnNames to attached KijiFreshnessPolicyRecords.
@@ -231,11 +233,7 @@ public final class KijiFreshnessManager implements Closeable {
         records.put(new KijiColumnName(columnName), retrievePolicy(tableName, columnName));
       }
     }
-    if (records.size() == 0) {
-      return null;
-    } else {
-      return records;
-    }
+    return records;
   }
 
   /**
