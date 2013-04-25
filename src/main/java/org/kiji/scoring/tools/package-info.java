@@ -19,6 +19,5 @@
 
 /**
  * Package containing CLI for KijiScoring.
- * TODO expand
  */
 package org.kiji.scoring.tools;

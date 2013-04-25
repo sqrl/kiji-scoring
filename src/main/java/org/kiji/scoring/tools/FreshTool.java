@@ -329,8 +329,7 @@ public class FreshTool extends BaseTool {
             return BaseTool.SUCCESS;
           }
           default: {
-            // TODO improve this error.
-            throw new InternalKijiError("DoMode cannot be found");
+            throw new InternalKijiError("Unsupported DoMode Enum value.");
           }
         }
       } finally {

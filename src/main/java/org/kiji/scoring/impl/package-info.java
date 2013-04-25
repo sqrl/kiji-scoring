@@ -19,6 +19,5 @@
 
 /**
  * Package containing private implementation classes for KijiScoring.
- * TODO expand
  */
 package org.kiji.scoring.impl;

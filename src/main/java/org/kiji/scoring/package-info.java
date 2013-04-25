@@ -18,7 +18,7 @@
  */
 
 /**
- * The main package for uses of KijiScoring.
- * TODO expand
+ * The main package for uses of KijiScoring.  Contains all user facing classes necessary to
+ * configure and perform real time scoring.
  */
 package org.kiji.scoring;

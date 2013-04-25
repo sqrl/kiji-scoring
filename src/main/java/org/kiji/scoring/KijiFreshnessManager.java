@@ -281,7 +281,4 @@ public final class KijiFreshnessManager implements Closeable {
   private String getMetaTableKey(String columnName) {
     return METATABLE_KEY_PREFIX + columnName;
   }
-
-  // TODO add String only register methods, basically force register
-  // TODO add removeAll?
 }
