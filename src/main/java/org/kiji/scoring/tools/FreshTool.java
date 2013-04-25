@@ -163,7 +163,7 @@ public class FreshTool extends BaseTool {
   private int retrievePolicy(String tableName, String columnName) throws IOException {
     final KijiFreshnessPolicyRecord record = mManager.retrievePolicy(tableName, columnName);
     if (record == null) {
-      getPrintStream().format("There is no freshness policy attached to column: %s in table :%s",
+      getPrintStream().format("There is no freshness policy attached to column: %s in table: %s",
           columnName, tableName);
     } else {
       getPrintStream().format(
@@ -188,7 +188,7 @@ public class FreshTool extends BaseTool {
     final Map<KijiColumnName, KijiFreshnessPolicyRecord> records =
         mManager.retrievePolicies(tableName);
     if (records.size() == 0) {
-      getPrintStream().format("There are no freshness policy attached to columns in table :%s",
+      getPrintStream().format("There are no freshness policies attached to columns in table: %s",
           tableName);
     } else {
       for (Map.Entry<KijiColumnName, KijiFreshnessPolicyRecord> entry : records.entrySet()) {

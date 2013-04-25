@@ -193,17 +193,27 @@ public class TestFreshTool extends KijiClientTest {
   }
 
   @Test
-  public void testRegisterInvalidColumn() throws Exception {
-
-  }
-
-  @Test
   public void testRetrieveEmpty() throws Exception {
+    getKiji().createTable(KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
+    assertEquals(BaseTool.SUCCESS, runTool(new FreshTool(),
+        KijiURI.newBuilder(getKiji().getURI()).withTableName("user")
+            .withColumnNames(Lists.newArrayList("info:name")).build().toString(),
+        "--do=retrieve"
+    ));
 
+    assertEquals("There is no freshness policy attached to column: info:name in table: user",
+        mToolOutputStr);
   }
 
   @Test
   public void testRetrieveAllEmpty() throws Exception {
+    getKiji().createTable(KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
+    assertEquals(BaseTool.SUCCESS, runTool(new FreshTool(),
+        KijiURI.newBuilder(getKiji().getURI()).withTableName("user").build().toString(),
+        "--do=retrieve-all"
+    ));
 
+    assertEquals("There are no freshness policies attached to columns in table: user",
+        mToolOutputStr);
   }
 }
