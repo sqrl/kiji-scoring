@@ -21,6 +21,9 @@ package org.kiji.scoring;
 
 import java.io.IOException;
 
+import org.kiji.annotations.ApiAudience;
+import org.kiji.annotations.ApiStability;
+import org.kiji.annotations.Inheritance;
 import org.kiji.schema.InternalKijiError;
 import org.kiji.schema.KijiTable;
 import org.kiji.scoring.impl.InternalFreshKijiTableReader;
@@ -34,6 +37,9 @@ import org.kiji.scoring.impl.InternalFreshKijiTableReader;
  *  </code>
  * </p>
  */
+@ApiAudience.Public
+@ApiStability.Experimental
+@Inheritance.Sealed
 public abstract class FreshKijiTableReaderFactory {
 
   /** Enumeration of types of fresh reader factories. */
