@@ -36,6 +36,7 @@ import org.kiji.schema.KijiTable;
 import org.kiji.schema.KijiTableWriter;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.scoring.impl.InternalFreshKijiTableReader;
+import org.kiji.scoring.lib.ShelfLife;
 
 /**
  * Demo of KijiScoring freshening.

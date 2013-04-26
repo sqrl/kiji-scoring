@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kiji.scoring;
+package org.kiji.scoring.lib;
 
 import java.util.Collections;
 import java.util.Map;
@@ -26,6 +26,8 @@ import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.kvstore.KeyValueStore;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
+import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.PolicyContext;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns stale for any KijiRowData.

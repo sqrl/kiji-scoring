@@ -30,13 +30,16 @@ import org.kiji.schema.KijiRowData;
 
 /**
  * The interface for freshness policies. Clients may implement this interface to create their own
- * freshness policies for their applications.
+ * freshness policies for their applications or use stock implementations provided in
+ * org.kiji.scoring.lib.
  *
  * A KijiFreshnessPolicy is essentially a function that accepts a KijiRowData as input and returns
  * a boolean representing the freshness of that row data.  This check takes place in the method
  * {@link #isFresh(org.kiji.schema.KijiRowData, PolicyContext)} with the assistance of a
  * {@link PolicyContext}.  The context provides accessor methods for various pieces of data relevant
- * to freshness at the time a request is made.
+ * to freshness at the time a request is made including the KijiDataReqeuest which triggered the
+ * freshness check, the column to which the freshness policy is attached, and the Hadoop
+ * Configuration of the Kiji instance in which that table lives.
  *
  * The KijiRowData passed to <code>isFresh()</code> is the result of either a request issued by a
  * user if {@link #shouldUseClientDataRequest()} is true, or a custom data request specific to this
@@ -74,7 +77,7 @@ public interface KijiFreshnessPolicy extends KeyValueStoreClient {
    * Custom data request required to fulfill
    * {@link #isFresh(org.kiji.schema.KijiRowData, org.kiji.scoring.PolicyContext)} if the
    * client's data request is insufficient.  If {@link #shouldUseClientDataRequest()} is true, this
-   * should return null.
+   * method will not be called, so it's implementation may be null.
    *
    * @return The custom data request.
    */

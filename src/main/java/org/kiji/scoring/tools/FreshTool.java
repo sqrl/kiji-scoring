@@ -42,8 +42,21 @@ import org.kiji.scoring.KijiFreshnessPolicy;
 import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 /**
- * Created with IntelliJ IDEA. User: aaron Date: 4/24/13 Time: 2:47 PM To change this template use
- * File | Settings | File Templates.
+ * Command line interface tool for registering and inspecting freshness policies.
+ *
+ * Usage:
+ *  <pre>
+ *  // Print all freshness policies attached to a table
+ *  kiji fresh kiji://.env/instance/table --do=retrieve-all
+ *  // Print the freshness policy attached to a column.  (If multiple columns are specified, will
+ *  // print each freshness policy)
+ *  kiji fresh kiji://.env/instance/table/family:qualifier
+ *  // Register a freshness policy for a column
+ *  kiji fresh kiji://.env/instance/table/family:qualifer org.kiji.scoring.lib.ShelfLife 10 \
+ *    com.mycompany.freshening.RecommendingProducer
+ *  // Unregister a freshness policy from a column
+ *  kiji fresh kiji://.env/instance/table/family:qualifier
+ *  </pre>
  */
 public class FreshTool extends BaseTool {
   private static final Logger LOG = LoggerFactory.getLogger(FreshTool.class);
@@ -51,7 +64,7 @@ public class FreshTool extends BaseTool {
   // Positional argument for the table or column
 
   @Flag(name="do", required=true, usage=
-      "\"register <policy class> '<policy state>' <producer class>\"; "
+      "\"register <policy class> <policy state> <producer class>\"; "
       + "\"unregister\"; "
       + "\"retrieve\"; "
       + "\"retrieve-all\"")

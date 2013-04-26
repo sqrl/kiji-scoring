@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.kiji.scoring;
+package org.kiji.scoring.lib;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import org.kiji.schema.EntityId;
 import org.kiji.schema.Kiji;
-import org.kiji.schema.KijiClientTest;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
@@ -39,13 +38,15 @@ import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
+import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.impl.InternalFreshKijiTableReader;
 import org.kiji.scoring.impl.InternalPolicyContext;
 
 /**
- * Test the behavior of the stock NewerThan KijiFreshnessPolicy.
+ * Test the behavior of the stock ShelfLife KijiFreshnessPolicy.
  */
-public final class TestNewerThan extends KijiClientTest {
+public class TestShelfLife {
   private static final Logger LOG = LoggerFactory.getLogger(TestNewerThan.class);
 
   private Kiji mKiji;
@@ -54,7 +55,7 @@ public final class TestNewerThan extends KijiClientTest {
   private FreshKijiTableReader mFreshReader;
 
   @Before
-  public void setupTestBulkImporter() throws Exception {
+  public void setupTestShelfLife() throws Exception {
     // Get the test table layouts.
     final KijiTableLayout layout = KijiTableLayout.newLayout(
         KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
@@ -79,7 +80,7 @@ public final class TestNewerThan extends KijiClientTest {
   }
 
   @After
-  public void teardownTestBulkImporter() throws Exception {
+  public void teardownTestShelfLife() throws Exception {
     mReader.close();
     mFreshReader.close();
     mTable.release();
@@ -92,12 +93,12 @@ public final class TestNewerThan extends KijiClientTest {
     final KijiRowData rowData = mReader.get(eid, request);
     final PolicyContext context =
         new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
-    final NewerThan policy = new NewerThan();
-    policy.deserialize("1");
+    final ShelfLife policy = new ShelfLife();
+    policy.deserialize(String.valueOf(Long.MAX_VALUE));
 
     assertTrue(policy.isFresh(rowData, context));
 
-    policy.deserialize("10");
+    policy.deserialize(String.valueOf(Long.MIN_VALUE));
     assertFalse(policy.isFresh(rowData, context));
   }
 }

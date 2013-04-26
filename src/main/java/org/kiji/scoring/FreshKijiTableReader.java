@@ -74,6 +74,12 @@ import org.kiji.schema.KijiTableReader;
  *   the producer if it ran.
  * </p>
  *
+ * <p>
+ *   Instances of this reader are not threadsafe and should be restricted to use in a single thread.
+ *   Because this class maintains a connection to the underlying KijiTable and other resources,
+ *   users should call {@link #close()} when done using a reader.
+ * </p>
+ *
  * @see org.kiji.scoring.KijiFreshnessPolicy
  */
 @ApiAudience.Public

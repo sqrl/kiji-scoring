@@ -49,7 +49,7 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  * This class is responsible for storing, retrieving and deleting freshness policies from a Kiji's
  * metatable.
  *
- * <p>Instance of class are not thread-safe. Since this class maintains a connection to the
+ * <p>Instances of this class are not thread-safe. Since this class maintains a connection to the
  * metatable clients should call {@link #close()} when finished with this class.</p>
  */
 @ApiAudience.Public

@@ -37,7 +37,7 @@ import org.kiji.schema.KijiTableWriter;
  * Producer context for freshening KijiProducers.  The context is responsible for providing access
  * to KVStores and processing writes during produce.
  */
-@ApiAudience.Public
+@ApiAudience.Private
 @ApiStability.Experimental
 public final class KijiFreshProducerContext implements ProducerContext {
 

@@ -54,14 +54,14 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
-import org.kiji.scoring.AlwaysFreshen;
+import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFreshen;
-import org.kiji.scoring.NewerThan;
+import org.kiji.scoring.lib.NeverFreshen;
+import org.kiji.scoring.lib.NewerThan;
 import org.kiji.scoring.PolicyContext;
-import org.kiji.scoring.ShelfLife;
+import org.kiji.scoring.lib.ShelfLife;
 
 /**
  * Tests InternalFreshKijiTableReader.
@@ -142,7 +142,7 @@ public class TestInternalFreshKijiTableReader {
   private InternalFreshKijiTableReader mFreshReader;
 
   @Before
-  public void setupEnvironment() throws Exception {
+  public void setupTestInternalFreshKijiTableReader() throws Exception {
     // Get the test table layouts.
     final KijiTableLayout layout = KijiTableLayout.newLayout(
         KijiTableLayouts.getLayout(KijiTableLayouts.COUNTER_TEST));
@@ -167,7 +167,7 @@ public class TestInternalFreshKijiTableReader {
   }
 
   @After
-  public void cleanupEnvironment() throws Exception {
+  public void cleanupTestInternalFreshKijiTableReader() throws Exception {
     ResourceUtils.closeOrLog(mFreshReader);
     ResourceUtils.closeOrLog(mReader);
     ResourceUtils.releaseOrLog(mTable);
@@ -187,7 +187,7 @@ public class TestInternalFreshKijiTableReader {
   @Test
   public void testPolicyForName() throws Exception {
     final Class<? extends KijiFreshnessPolicy> expected = ShelfLife.class;
-    assertEquals(expected, mFreshReader.policyForName("org.kiji.scoring.ShelfLife").getClass());
+    assertEquals(expected, mFreshReader.policyForName("org.kiji.scoring.lib.ShelfLife").getClass());
   }
 
   @Test

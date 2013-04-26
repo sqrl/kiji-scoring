@@ -16,7 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kiji.scoring;
+
+package org.kiji.scoring.lib;
 
 import java.util.Collections;
 import java.util.Map;
@@ -28,38 +29,40 @@ import org.kiji.mapreduce.kvstore.KeyValueStore;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiDataRequest;
 import org.kiji.schema.KijiRowData;
+import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.PolicyContext;
 
 /**
  * A stock {@link org.kiji.scoring.KijiFreshnessPolicy} which returns fresh if requested data was
- * modified within a specified number of milliseconds of the current time.
- *
+ * modified later than a specified timestamp.
  */
 @ApiAudience.Public
 @ApiStability.Experimental
-public final class ShelfLife implements KijiFreshnessPolicy {
-  private long mShelfLifeMillis = -1;
+public class NewerThan implements KijiFreshnessPolicy {
+  private long mNewerThanTimestamp = -1;
 
   /**
    * Default empty constructor for automatic construction. User must call
    * {@link #deserialize(String)} to initialize state.
    */
-  public ShelfLife() {}
+  public NewerThan() {}
 
   /**
    * Constructor which initializes all state.  No call to {@link #deserialize(String)} is necessary.
    *
-   * @param shelfLife the age in milliseconds beyond which data becomes stale.
+   * @param newerThan the unix time in milliseconds before which data is stale.
    */
-  public ShelfLife(long shelfLife) {
-    mShelfLifeMillis = shelfLife;
+  public NewerThan(long newerThan) {
+    mNewerThanTimestamp = newerThan;
   }
 
   /** {@inheritDoc} */
   @Override
   public boolean isFresh(KijiRowData rowData, PolicyContext policyContext) {
     final KijiColumnName columnName = policyContext.getAttachedColumn();
-    if (mShelfLifeMillis == -1) {
-      throw new RuntimeException("Shelf life not set.  Did you call ShelfLife.deserialize()?");
+    if (mNewerThanTimestamp == -1) {
+      throw new RuntimeException(
+          "Newer than timestamp not set.  Did you call NewerThan.deserialize()?");
     }
     if (columnName == null) {
       throw new RuntimeException("Target column was not set in the PolicyContext.");
@@ -71,10 +74,9 @@ public final class ShelfLife implements KijiFreshnessPolicy {
 
     NavigableSet<Long> timestamps =
         rowData.getTimestamps(columnName.getFamily(), columnName.getQualifier());
-    // If there are no values in the column in the row data, it is not fresh.  If there are values,
-    // but the newest is more than mShelfLifeMillis old, it is not fresh.
-    return !timestamps.isEmpty()
-        && System.currentTimeMillis() - timestamps.first() <= mShelfLifeMillis;
+    // If there are no values in the column in the row data, it is not fresh.  If there are values
+    // but the newest value is older than mNewerThanTimestamp, it is not fresh.
+    return !timestamps.isEmpty() && timestamps.first() >= mNewerThanTimestamp;
   }
 
   /** {@inheritDoc} */
@@ -98,14 +100,14 @@ public final class ShelfLife implements KijiFreshnessPolicy {
   /** {@inheritDoc} */
   @Override
   public String serialize() {
-    // The only required state is the shelf life duration.
-    return String.valueOf(mShelfLifeMillis);
+    // The only required state is the newer than timestamp.
+    return String.valueOf(mNewerThanTimestamp);
   }
 
   /** {@inheritDoc} */
   @Override
   public void deserialize(String policyState) {
-    // Load the shelf life from the policy state.
-    mShelfLifeMillis = Long.parseLong(policyState);
+    // Load the newer than timestamp from the policy state.
+    mNewerThanTimestamp = Long.parseLong(policyState);
   }
 }

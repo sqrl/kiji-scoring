@@ -44,11 +44,11 @@ import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.KijiTableWriter;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.testutil.AbstractKijiIntegrationTest;
-import org.kiji.scoring.AlwaysFreshen;
+import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.FreshKijiTableReader;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFreshen;
+import org.kiji.scoring.lib.NeverFreshen;
 
 /**
  * Benchmarking test for Freshness performance.

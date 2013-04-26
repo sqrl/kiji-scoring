@@ -18,7 +18,34 @@
  */
 
 /**
- * The main package for uses of KijiScoring.  Contains all user facing classes necessary to
+ * The main package for uses of KijiScoring.  Contains user facing classes necessary to
  * configure and perform real time scoring.
+ *
+ * <h3>Classes:</h3>
+ * <p>
+ *   FreshKijiTableReader: Primary interface for performing fresh reads.  Behaves like a regular
+ *   KijiTableReader except for the possibility of freshening.
+ * </p>
+ * <p>
+ *   KijiFreshnessManager: Tool for registering, retrieving, and unregistering freshness policies
+ *   for the meta table.
+ * </p>
+ * <p>
+ *   KijiFreshnessPolicy: SPI implemented by the user to perform freshness checks.
+ * </p>
+ * <p>
+ *   PolicyContext: Interface for providing access to request specific contextual information in
+ *   KijiFreshnessPolicys.
+ * </p>
+ * <h3>Packages:</h3>
+ * <p>
+ *   impl: Contains ApiAudience.Private implementation classes necessary for scoring.
+ * </p>
+ * <p>
+ *   lib: Contains stock implementations of KijiFreshnessPolicys.
+ * </p>
+ * <p>
+ *   tools: Contains command line interface tools for registering and inspecting freshness policies.
+ * </p>
  */
 package org.kiji.scoring;

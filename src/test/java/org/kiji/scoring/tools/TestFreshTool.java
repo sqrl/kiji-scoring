@@ -41,7 +41,7 @@ import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.tools.BaseTool;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.NeverFreshen;
+import org.kiji.scoring.lib.NeverFreshen;
 import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
 public class TestFreshTool extends KijiClientTest {
@@ -101,7 +101,7 @@ public class TestFreshTool extends KijiClientTest {
         KijiURI.newBuilder(getKiji().getURI()).withTableName("user")
             .withColumnNames(Lists.newArrayList("info:name")).build().toString(),
         "--do=register",
-        "org.kiji.scoring.ShelfLife",
+        "org.kiji.scoring.lib.ShelfLife",
         "10",
         "org.kiji.scoring.tools.TestFreshTool$TestProducer"
     ));
@@ -109,7 +109,7 @@ public class TestFreshTool extends KijiClientTest {
     final KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
         .setRecordVersion("policyrecord-0.1.0")
         .setProducerClass(TestProducer.class.getName())
-        .setFreshnessPolicyClass(Class.forName("org.kiji.scoring.ShelfLife")
+        .setFreshnessPolicyClass(Class.forName("org.kiji.scoring.lib.ShelfLife")
             .asSubclass(KijiFreshnessPolicy.class).getName())
         .setFreshnessPolicyState("10")
         .build();
@@ -144,7 +144,7 @@ public class TestFreshTool extends KijiClientTest {
     ));
 
     assertEquals(
-        "Freshness policy class: org.kiji.scoring.NeverFreshen\n"
+        "Freshness policy class: org.kiji.scoring.lib.NeverFreshen\n"
         + "Freshness policy state: \n"
         + "Producer class: org.kiji.scoring.tools.TestFreshTool$TestProducer",
         mToolOutputStr);
@@ -166,11 +166,11 @@ public class TestFreshTool extends KijiClientTest {
 
     assertEquals(
         "Freshness policy attached to column: info:visits\n"
-        + "  Freshness policy class: org.kiji.scoring.NeverFreshen\n"
+        + "  Freshness policy class: org.kiji.scoring.lib.NeverFreshen\n"
         + "  Freshness policy state: \n"
         + "  Producer class: org.kiji.scoring.tools.TestFreshTool$TestProducer\n"
         + "Freshness policy attached to column: info:name\n"
-        + "  Freshness policy class: org.kiji.scoring.NeverFreshen\n"
+        + "  Freshness policy class: org.kiji.scoring.lib.NeverFreshen\n"
         + "  Freshness policy state: \n"
         + "  Producer class: org.kiji.scoring.tools.TestFreshTool$TestProducer\n",
         mToolOutputStr);
