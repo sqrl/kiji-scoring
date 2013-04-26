@@ -170,7 +170,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    *   {@link #get(org.kiji.schema.EntityId, org.kiji.schema.KijiDataRequest)} calls.
    * @throws IOException if an error occurs while processing the table or freshness policy.
    */
-  // TODO refactor this to a factory
   public InternalFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
     this(table, timeout, 0);
   }

@@ -44,10 +44,12 @@ import org.kiji.schema.KijiTableReader;
 import org.kiji.schema.KijiTableWriter;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.testutil.AbstractKijiIntegrationTest;
-import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.FreshKijiTableReaderFactory;
+import org.kiji.scoring.FreshKijiTableReaderFactory.FreshReaderFactoryType;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.lib.NeverFreshen;
 
 /**
@@ -91,7 +93,8 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     KijiFreshnessPolicy policy = new NeverFreshen();
     mManager.storePolicy(
         "user", "info:name", TestInternalFreshKijiTableReader.TestProducer.class, policy);
-    mFreshReader = new InternalFreshKijiTableReader(mTable, 1000);
+    mFreshReader = FreshKijiTableReaderFactory.getFactory(FreshReaderFactoryType.LOCAL).
+        openReader(mTable, 1000);
   }
 
   @After
@@ -236,7 +239,8 @@ public class IntegrationTestFreshnessBenchmark extends AbstractKijiIntegrationTe
     mWriter.put(eid, "info", "visits", 0);
     final KijiFreshnessPolicy policy = new AlwaysFreshen();
     mManager.storePolicy("user", "info:visits", IncrementingProducer.class, policy);
-    final FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000);
+    final FreshKijiTableReader freshReader = FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 1000);
 
     for (int times = 0; times < 10; times++) {
       final ArrayList<Long> normalTimes = Lists.newArrayList();

@@ -39,8 +39,9 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.FreshKijiTableReaderFactory;
+import org.kiji.scoring.FreshKijiTableReaderFactory.FreshReaderFactoryType;
 import org.kiji.scoring.PolicyContext;
-import org.kiji.scoring.impl.InternalFreshKijiTableReader;
 import org.kiji.scoring.impl.InternalPolicyContext;
 
 /**
@@ -76,7 +77,8 @@ public class TestShelfLife {
     // Fill local variables.
     mTable = mKiji.openTable("user");
     mReader = mTable.openTableReader();
-    mFreshReader = new InternalFreshKijiTableReader(mTable, 1000);
+    mFreshReader = FreshKijiTableReaderFactory.getFactory(FreshReaderFactoryType.LOCAL).
+        openReader(mTable, 1000);
   }
 
   @After

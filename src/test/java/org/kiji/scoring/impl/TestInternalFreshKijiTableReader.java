@@ -54,13 +54,15 @@ import org.kiji.schema.layout.KijiTableLayout;
 import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.util.InstanceBuilder;
 import org.kiji.schema.util.ResourceUtils;
-import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.FreshKijiTableReader;
+import org.kiji.scoring.FreshKijiTableReaderFactory;
+import org.kiji.scoring.FreshKijiTableReaderFactory.FreshReaderFactoryType;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
+import org.kiji.scoring.PolicyContext;
+import org.kiji.scoring.lib.AlwaysFreshen;
 import org.kiji.scoring.lib.NeverFreshen;
 import org.kiji.scoring.lib.NewerThan;
-import org.kiji.scoring.PolicyContext;
 import org.kiji.scoring.lib.ShelfLife;
 
 /**
@@ -163,7 +165,8 @@ public class TestInternalFreshKijiTableReader {
     // Fill local variables.
     mTable = mKiji.openTable("user");
     mReader = mTable.openTableReader();
-    mFreshReader = new InternalFreshKijiTableReader(mTable, 1000);
+    mFreshReader = (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 1000);
   }
 
   @After
@@ -202,7 +205,9 @@ public class TestInternalFreshKijiTableReader {
     manager.storePolicy("user", "info:visits", TestProducer.class, new NeverFreshen());
 
     // Open a new reader to pull in the new freshness policies.
-    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000);
+    final InternalFreshKijiTableReader freshReader =
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 1000);
     assertEquals(2, freshReader.getPolicies(completeRequest).size());
     assertEquals(AlwaysFreshen.class,
         freshReader.getPolicies(completeRequest).get(new KijiColumnName("info", "name"))
@@ -284,7 +289,8 @@ public class TestInternalFreshKijiTableReader {
     // Open a new reader to pull in the new freshness policies. Allow 10 seconds so it is very
     // unlikely to timeout.
     final InternalFreshKijiTableReader freshReader =
-        new InternalFreshKijiTableReader(mTable, 10000);
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 10000);
 
     // freshReader should return the same as regular reader because the data is fresh.
     assertEquals(
@@ -306,7 +312,8 @@ public class TestInternalFreshKijiTableReader {
 
     // Open a new reader to pull in the new freshness policies.
     final InternalFreshKijiTableReader freshReader =
-        new InternalFreshKijiTableReader(mTable, 10000);
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 10000);
 
     // freshReader should return different from regular reader because the data is stale.
     assertFalse(
@@ -334,7 +341,8 @@ public class TestInternalFreshKijiTableReader {
 
     // Open a new reader to pull in the new freshness policies.
     final InternalFreshKijiTableReader freshReader =
-        new InternalFreshKijiTableReader(mTable, 10000);
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 10000);
 
     // Get the old data for comparison
     final List<KijiRowData> oldData =
@@ -372,7 +380,9 @@ public class TestInternalFreshKijiTableReader {
     final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
     manager.storePolicy("user", "info:name", TestTimeoutProducer.class, new AlwaysFreshen());
 
-    mFreshReader = new InternalFreshKijiTableReader(mTable, 500);
+    mFreshReader =
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 500);
 
     // The fresh reader should return stale data after a timeout.
     assertEquals(
@@ -389,7 +399,10 @@ public class TestInternalFreshKijiTableReader {
   public void testReload() throws IOException {
     final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
     manager.storePolicy("user", "info:name", TestProducer.class, new ShelfLife(10L));
-    final InternalFreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 100);
+    final InternalFreshKijiTableReader freshReader =
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 100);
+
     assertTrue(freshReader.getPolicies(KijiDataRequest.create("info", "name"))
         .containsKey(new KijiColumnName("info", "name")));
     manager.removePolicy("user", "info:name");
@@ -407,7 +420,8 @@ public class TestInternalFreshKijiTableReader {
     final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
     manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
 
-    FreshKijiTableReader freshReader = new InternalFreshKijiTableReader(mTable, 1000, 1000);
+    FreshKijiTableReader freshReader = FreshKijiTableReaderFactory.
+        getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 1000, 1000);
 
     // Register a new freshness policy
     manager.storePolicy("user", "info:name", TestProducerTwo.class, new NewerThan(Long.MAX_VALUE));

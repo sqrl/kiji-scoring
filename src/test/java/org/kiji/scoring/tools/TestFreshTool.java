@@ -41,8 +41,8 @@ import org.kiji.schema.layout.KijiTableLayouts;
 import org.kiji.schema.tools.BaseTool;
 import org.kiji.scoring.KijiFreshnessManager;
 import org.kiji.scoring.KijiFreshnessPolicy;
-import org.kiji.scoring.lib.NeverFreshen;
 import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
+import org.kiji.scoring.lib.NeverFreshen;
 
 public class TestFreshTool extends KijiClientTest {
   private static final Logger LOG = LoggerFactory.getLogger(TestFreshTool.class);
