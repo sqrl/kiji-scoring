@@ -126,6 +126,12 @@ public class FreshTool extends BaseTool {
       KijiFreshnessPolicy policy)
       throws IOException {
     mManager.storePolicy(tableName, columnName, producerClass, policy);
+    if (isInteractive()) {
+      getPrintStream().format("Freshness policy: %s with state: %s and producer: %s%n"
+          + "attached to column: %s in table: %s",
+          policy.getClass().getName(), policy.serialize(), producerClass.getName(),
+          columnName, tableName);
+    }
     return BaseTool.SUCCESS;
   }
 
@@ -149,6 +155,12 @@ public class FreshTool extends BaseTool {
       throws IOException {
     mManager.storePolicyWithoutChecks(
         tableName, columnName, producerClass, policyClass, policyState);
+    if (isInteractive()) {
+      getPrintStream().format("Freshness policy: %s with state: %s and producer: %s%n "
+          + "attached to column: %s in table: %s without checks.",
+          policyClass, policyState, producerClass,
+          columnName, tableName);
+    }
     return BaseTool.SUCCESS;
   }
 
@@ -162,6 +174,10 @@ public class FreshTool extends BaseTool {
    */
   private int unregisterPolicy(String tableName, String columnName) throws IOException {
     mManager.removePolicy(tableName, columnName);
+    if (isInteractive()) {
+      getPrintStream().format("Freshness policy removed from column: %s in table %s",
+          columnName, tableName);
+    }
     return BaseTool.SUCCESS;
   }
 
@@ -339,10 +355,14 @@ public class FreshTool extends BaseTool {
           }
           case UNREGISTER_ALL: {
             mManager.removePolicies(mURI.getTable());
+            if (isInteractive()) {
+              getPrintStream().format(
+                  "All freshness policies removed from table: %s", mURI.getTable());
+            }
             return BaseTool.SUCCESS;
           }
           default: {
-            throw new InternalKijiError("Unsupported DoMode Enum value.");
+            throw new InternalKijiError("Unsupported operation enum value.");
           }
         }
       } finally {
