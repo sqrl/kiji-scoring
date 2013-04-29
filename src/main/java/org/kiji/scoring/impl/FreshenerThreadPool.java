@@ -33,21 +33,28 @@ public final class FreshenerThreadPool {
   private static FreshenerThreadPool mPool;
   private final ExecutorService mExecutor;
 
-  /** Private constructor. */
-  private FreshenerThreadPool() {
-    mExecutor = Executors.newCachedThreadPool();
+  /**
+   * Private constructor.
+   *
+   * @param poolSize the size of the FixedThreadPool to create.
+   */
+  private FreshenerThreadPool(int poolSize) {
+    mExecutor = Executors.newFixedThreadPool(poolSize);
   }
 
   /**
-   * Gets the singleton instance, creating it if necessary.
+   * Gets the singleton instance, creating it if necessary.  If an instance is created, it will be
+   * created with the specified number of threads.
    *
+   * @param poolSize the size of the thread pool to create if there is not already an active
+   * instance.
    * @return The singletone instance.
    */
-  public static FreshenerThreadPool getInstance() {
+  public static FreshenerThreadPool getInstance(int poolSize) {
     if (mPool == null) {
       synchronized (FreshenerThreadPool.class) {
         if (mPool == null) {
-          mPool = new FreshenerThreadPool();
+          mPool = new FreshenerThreadPool(poolSize);
         }
       }
     }
@@ -60,6 +67,6 @@ public final class FreshenerThreadPool {
    * @return The singleton's executor.
    */
   public ExecutorService getExecutorService() {
-    return getInstance().mExecutor;
+    return getInstance(0).mExecutor;
   }
 }
