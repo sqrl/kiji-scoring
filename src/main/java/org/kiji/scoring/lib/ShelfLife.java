@@ -44,7 +44,7 @@ public final class ShelfLife implements KijiFreshnessPolicy {
 
   /**
    * Default empty constructor for automatic construction. This is for reflection utils. Users
-   * should use {@link ShelfLife(long)} instead.
+   * should use {@link #ShelfLife(long)} instead.
    */
   public ShelfLife() {}
 

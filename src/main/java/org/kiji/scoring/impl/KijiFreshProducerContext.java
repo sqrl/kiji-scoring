@@ -81,13 +81,23 @@ public final class KijiFreshProducerContext implements ProducerContext {
     return new KijiFreshProducerContext(table, outputColumn, eid, factory);
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Producer contexts used for freshening will be configured to write to the column where the
+   * freshness policy is attached, rather than the column returned by
+   * {@link KijiProducer#getOutputColumn()}.
+   * {@inheritDoc}
+   */
   @Override
   public <T> void put(final T value) throws IOException {
     put(HConstants.LATEST_TIMESTAMP, value);
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Producer contexts used for freshening will be configured to write to the column where the
+   * freshness policy is attached, rather than the column returned by
+   * {@link KijiProducer#getOutputColumn()}.
+   * {@inheritDoc}
+   */
   @Override
   public <T> void put(final long timestamp, final T value) throws IOException {
     mWriter.put(mEntityId, mFamily, Preconditions.checkNotNull(
@@ -95,13 +105,23 @@ public final class KijiFreshProducerContext implements ProducerContext {
         timestamp, value);
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Producer contexts used for freshening will be configured to write to the column where the
+   * freshness policy is attached, rather than the column returned by
+   * {@link KijiProducer#getOutputColumn()}.
+   * {@inheritDoc}
+   */
   @Override
   public <T> void put(final String qualifier, final T value) throws IOException {
     put(qualifier, HConstants.LATEST_TIMESTAMP, value);
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Producer contexts used for freshening will be configured to write to the column where the
+   * freshness policy is attached, rather than the column returned by
+   * {@link KijiProducer#getOutputColumn()}.
+   * {@inheritDoc}
+   */
   @Override
   public <T> void put(final String qualifier, final long timestamp, final T value)
       throws IOException {
