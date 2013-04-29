@@ -39,13 +39,23 @@ import org.kiji.scoring.PolicyContext;
 @ApiAudience.Public
 @ApiStability.Experimental
 public final class ShelfLife implements KijiFreshnessPolicy {
+
   private long mShelfLifeMillis = -1;
 
   /**
-   * Default empty constructor for automatic construction. User must call
-   * {@link #deserialize(String)} to initialize state.
+   * Default empty constructor for automatic construction. This is for reflection utils. Users
+   * should use {@link ShelfLife(long)} instead.
    */
   public ShelfLife() {}
+
+  /**
+   * Get the number of milliseconds this shelf life is configured with.
+   *
+   * @return The 'shelf life' in milliseconds.
+   */
+  public long getShelfLifeInMillis() {
+    return mShelfLifeMillis;
+  }
 
   /**
    * Constructor which initializes all state.  No call to {@link #deserialize(String)} is necessary.
@@ -53,6 +63,9 @@ public final class ShelfLife implements KijiFreshnessPolicy {
    * @param shelfLife the age in milliseconds beyond which data becomes stale.
    */
   public ShelfLife(long shelfLife) {
+    if (shelfLife < 0) {
+      throw new IllegalArgumentException("Shelf life must be a positive number of milliseconds.");
+    }
     mShelfLifeMillis = shelfLife;
   }
 

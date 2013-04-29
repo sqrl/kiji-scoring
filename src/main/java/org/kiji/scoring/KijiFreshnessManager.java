@@ -112,7 +112,7 @@ public final class KijiFreshnessManager implements Closeable {
   }
 
   /**
-   * Saves a freshness policy in the metatable.
+   * Saves a freshness policy in the metatable using classes.
    *
    * @param tableName the table name with which the freshness policy should be associated. If the
    * table doesn't exist, an IOException will be thrown.
@@ -127,28 +127,16 @@ public final class KijiFreshnessManager implements Closeable {
   public void storePolicy(String tableName, String columnName,
       Class<? extends KijiProducer> producerClass, KijiFreshnessPolicy policy)
       throws IOException {
-    if (!mMetaTable.tableExists(tableName)) {
-      throw new KijiTableNotFoundException("Couldn't find table: " + tableName);
-    }
-    // This code will throw an invalid name if there's something wrong with this columnName string.
-    KijiColumnName kcn = new KijiColumnName(columnName);
-    //TODO(Scoring-10): Check the column name against the current version of the table.
-    KijiFreshnessPolicyRecord record = KijiFreshnessPolicyRecord.newBuilder()
-        .setRecordVersion(CUR_FRESHNESS_RECORD_VER.toCanonicalString())
-        .setProducerClass(producerClass.getName())
-        .setFreshnessPolicyClass(policy.getClass().getName())
-        .setFreshnessPolicyState(policy.serialize())
-        .build();
-
-    mOutputStream.reset();
-    Encoder encoder = mEncoderFactory.directBinaryEncoder(mOutputStream, null);
-    mRecordWriter.write(record, encoder);
-    mMetaTable.putValue(tableName, getMetaTableKey(columnName),
-        mOutputStream.toByteArray());
+    storePolicyWithStrings(
+        tableName,
+        columnName,
+        producerClass.getName(),
+        policy.getClass().getName(),
+        policy.serialize());
   }
 
   /**
-   * Saves a freshness policy in the metatable without performaing any checks on compatability of
+   * Saves a freshness policy in the metatable without performing any checks on compatibility of
    * components.
    *
    * @param tableName the table name with which the freshness policy should be associated.  Throws
@@ -162,7 +150,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @param policyState the serialized state of the policy class.
    * @throws IOException in case of an error writing to the metatable.
    */
-  public void storePolicyWithoutChecks(String tableName, String columnName, String producerClass,
+  public void storePolicyWithStrings(String tableName, String columnName, String producerClass,
       String policyClass, String policyState) throws IOException {
     if (!mMetaTable.tableExists(tableName)) {
       throw new KijiTableNotFoundException("Couldn't find table: " + tableName);

@@ -153,7 +153,7 @@ public class FreshTool extends BaseTool {
       final String policyState,
       final String producerClass)
       throws IOException {
-    mManager.storePolicyWithoutChecks(
+    mManager.storePolicyWithStrings(
         tableName, columnName, producerClass, policyClass, policyState);
     if (isInteractive()) {
       getPrintStream().format("Freshness policy: %s with state: %s and producer: %s%n "
