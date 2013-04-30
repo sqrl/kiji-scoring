@@ -69,9 +69,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   /** Default time between automatic reloads.  0 indicates no automatic reloads. */
   private static final int DEFAULT_RELOAD_TIME = 0;
 
-  /** Default size of the thread pool used by all FreshKijiTableRunners in the same process. */
-  private static final int DEFAULT_THREAD_POOL_SIZE = 10;
-
   /** The kiji table instance. */
   private final KijiTable mTable;
 
@@ -178,7 +175,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    * @throws IOException if an error occurs communicating with the table or meta table.
    */
   public InternalFreshKijiTableReader(KijiTable table, int timeout) throws IOException {
-    this(table, timeout, DEFAULT_RELOAD_TIME, DEFAULT_THREAD_POOL_SIZE);
+    this(table, timeout, DEFAULT_RELOAD_TIME, FreshenerThreadPool.DEFAULT_THREAD_POOL_SIZE);
   }
 
   /**
@@ -197,7 +194,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
    */
   public InternalFreshKijiTableReader(KijiTable table, int timeout, int reloadTime)
       throws IOException {
-    this(table, timeout, reloadTime, DEFAULT_THREAD_POOL_SIZE);
+    this(table, timeout, reloadTime, FreshenerThreadPool.DEFAULT_THREAD_POOL_SIZE);
   }
 
   /**

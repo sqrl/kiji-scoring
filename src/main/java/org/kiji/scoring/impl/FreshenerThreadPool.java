@@ -30,6 +30,9 @@ import org.kiji.annotations.ApiStability;
 @ApiAudience.Private
 @ApiStability.Experimental
 public final class FreshenerThreadPool {
+  /** Default number of threads. */
+  public static final int DEFAULT_THREAD_POOL_SIZE = 10;
+
   private static FreshenerThreadPool mPool;
   private final ExecutorService mExecutor;
 
@@ -43,12 +46,22 @@ public final class FreshenerThreadPool {
   }
 
   /**
+   * Get the singleton instance, creating it if necessary.  If an instance is created it will be
+   * created with the default number of threads.
+   *
+   * @return the singleton instance.
+   */
+  public static FreshenerThreadPool getInstance() {
+    return getInstance(DEFAULT_THREAD_POOL_SIZE);
+  }
+
+  /**
    * Gets the singleton instance, creating it if necessary.  If an instance is created, it will be
    * created with the specified number of threads.
    *
    * @param poolSize the size of the thread pool to create if there is not already an active
    * instance.
-   * @return The singletone instance.
+   * @return The singleton instance.
    */
   public static FreshenerThreadPool getInstance(int poolSize) {
     if (mPool == null) {
