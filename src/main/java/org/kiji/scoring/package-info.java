@@ -27,25 +27,35 @@
  *   KijiTableReader except for the possibility of freshening.
  * </p>
  * <p>
- *   KijiFreshnessManager: Tool for registering, retrieving, and unregistering freshness policies
- *   for the meta table.
+ *   KijiFreshnessManager: Tool for registering, retrieving, and removing freshness policies
+ *   from the meta table.
  * </p>
  * <p>
  *   KijiFreshnessPolicy: SPI implemented by the user to perform freshness checks.
  * </p>
  * <p>
  *   PolicyContext: Interface for providing access to request specific contextual information in
- *   KijiFreshnessPolicys.
+ *   KijiFreshnessPolicies.
  * </p>
  * <h3>Packages:</h3>
  * <p>
  *   impl: Contains ApiAudience.Private implementation classes necessary for scoring.
  * </p>
  * <p>
- *   lib: Contains stock implementations of KijiFreshnessPolicys.
+ *   lib: Contains stock implementations of KijiFreshnessPolicies.
  * </p>
  * <p>
  *   tools: Contains command line interface tools for registering and inspecting freshness policies.
+ * </p>
+ *
+ * <h3>Other notes:</h3>
+ * <p>
+ *   {@link org.kiji.mapreduce.produce.ProducerContext} objects passed to
+ *   {@link org.kiji.mapreduce.produce.KijiProducer}s used for freshening will ignore
+ *   {@link org.kiji.mapreduce.produce.KijiProducer#getOutputColumn()} and instead be configured
+ *   to write to the column where the KijiFreshnessPolicy is attached.  In the case of a freshness
+ *   policy attached to a map type family, the ProducerContext will be configured to write to any
+ *   qualified column within that family.
  * </p>
  */
 package org.kiji.scoring;
