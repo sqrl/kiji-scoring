@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.slf4j.Logger;
@@ -308,16 +309,36 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
         new HashMap<KijiColumnName, KijiFreshnessPolicy>();
     final Collection<Column> columns = dataRequest.getColumns();
     for (Column column : columns) {
+      final KijiColumnName family = new KijiColumnName(column.getFamily());
       if (mCapsuleCache.containsKey(column.getColumnName())) {
         policies.put(column.getColumnName(), mCapsuleCache.get(column.getColumnName()).getPolicy());
+      } else if (mCapsuleCache.containsKey(family)) {
+        policies.put(family, mCapsuleCache.get(family).getPolicy());
       } else {
-        final KijiFreshnessPolicyRecord record = mPolicyRecords.get(column.getColumnName());
+        final KijiFreshnessPolicyRecord qualifiedRecord =
+            mPolicyRecords.get(column.getColumnName());
+        final KijiFreshnessPolicyRecord familyRecord = mPolicyRecords.get(family);
+        // Ensure that there is only one freshness policy applicable to this column.
+        Preconditions.checkState(!(qualifiedRecord != null && familyRecord != null),
+            String.format("A record exists for both the family: %s and qualified column: %s\n"
+                + "Only one may be specified.",
+                family.toString(), column.getColumnName().toString()));
+        KijiFreshnessPolicyRecord record = null;
+        KijiColumnName columnName = null;
+        if (qualifiedRecord != null) {
+          record = qualifiedRecord;
+          columnName = column.getColumnName();
+        } else {
+          record = familyRecord;
+          columnName = family;
+        }
+
         if (record != null) {
           // Instantiate and initialize the policies.
           final KijiFreshnessPolicy policy = policyForName(record.getFreshnessPolicyClass());
           policy.deserialize(record.getFreshnessPolicyState());
           // Add the policy to the list of policies applicable to this data request.
-          policies.put(column.getColumnName(), policy);
+          policies.put(columnName, policy);
 
           // Instantiate and initialize the producer. Add it to the serialize.
           final KijiProducer producer = producerForName(record.getProducerClass());
@@ -333,7 +354,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
 
           // Encapsulate the policy, producer, and factory and serialize them in a cache.
           final FreshnessCapsule capsule = new FreshnessCapsule(policy, producer, factory);
-          mCapsuleCache.put(column.getColumnName(), capsule);
+          mCapsuleCache.put(columnName, capsule);
         }
       }
     }

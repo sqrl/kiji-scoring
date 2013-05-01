@@ -22,6 +22,7 @@ package org.kiji.scoring.impl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -35,6 +36,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.internal.verification.Only;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -218,6 +220,47 @@ public class TestInternalFreshKijiTableReader {
   }
 
   @Test
+  public void testGetFamilyPolicy() throws IOException {
+    final KijiDataRequest request = KijiDataRequest.create("info", "name");
+
+    // Create a KijiFreshnessManager and register a freshness policy.
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
+    manager.removePolicies("user");
+    manager.storePolicy("user", "info", TestProducer.class, new NeverFreshen());
+
+    // Open a new reader to pull in the new freshness policy.
+    final InternalFreshKijiTableReader freshReader =
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory
+        .getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 100);
+    assertEquals(1, freshReader.getPolicies(request).size());
+    assertEquals(NeverFreshen.class,
+        freshReader.getPolicies(request).get(new KijiColumnName("info")).getClass());
+  }
+
+  @Test
+  public void testFamilyAndQualifiedPolicy() throws IOException {
+    final KijiDataRequest request = KijiDataRequest.create("info", "name");
+
+    // Create a KijiFreshnessManager and register some freshness policies.
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
+    manager.storePolicy("user", "info:name", TestProducer.class, new AlwaysFreshen());
+    manager.storePolicy("user", "info", TestProducer.class, new NeverFreshen());
+
+    // Open a new reader to pull in the new freshness policies.
+    final InternalFreshKijiTableReader freshReader =
+        (InternalFreshKijiTableReader) FreshKijiTableReaderFactory
+            .getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 100);
+
+    try {
+      freshReader.getPolicies(request);
+      fail("getPolicies() should throw IllegalStateException");
+    } catch (IllegalStateException ise) {
+      assertEquals("A record exists for both the family: info and qualified column: info:name\n"
+          + "Only one may be specified.", ise.getMessage());
+    }
+  }
+
+  @Test
   public void testGetClientData() throws Exception {
     final EntityId eid = mTable.getEntityId("foo");
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
@@ -266,7 +309,7 @@ public class TestInternalFreshKijiTableReader {
   }
 
   @Test
-  public void testGetNoPolicy() throws Exception {
+  public void testGetWithNoPolicy() throws Exception {
     final EntityId eid = mTable.getEntityId("foo");
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
 

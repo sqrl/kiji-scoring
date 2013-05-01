@@ -127,6 +127,7 @@ public final class KijiFreshnessManager implements Closeable {
   public void storePolicy(String tableName, String columnName,
       Class<? extends KijiProducer> producerClass, KijiFreshnessPolicy policy)
       throws IOException {
+    // TODO(Score-22): Design checks to perform here.
     storePolicyWithStrings(
         tableName,
         columnName,
