@@ -241,26 +241,34 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
     final Map<KijiColumnName, KijiFreshnessPolicyRecord> newRecords =
         KijiFreshnessManager.create(mTable.getKiji()).retrievePolicies(mTable.getName());
     for (Map.Entry<KijiColumnName, KijiFreshnessPolicyRecord> entry : mPolicyRecords.entrySet()) {
-//      // Remove duplicate records from the new record map.
-//      if (newRecords.containsKey(entry.getKey())
-//          && newRecords.get(entry.getKey()) == entry.getValue()) {
-//        newRecords.remove(entry.getKey());
-//      }
-      // Remove records not found in the new map from the cache.
+      // Remove duplicate records from the new record map.
+      if (newRecords.containsKey(entry.getKey())
+          && newRecords.get(entry.getKey()) == entry.getValue()) {
+        newRecords.remove(entry.getKey());
+      }
+      // Unload freshness policies for columns which no longer have policies attached.
       if (!newRecords.containsKey(entry.getKey())) {
+        // Remove the policy record.
+        mPolicyRecords.remove(entry.getKey());
+        // Remove any cached objects.
         if (mCapsuleCache.containsKey(entry.getKey())) {
           final FreshnessCapsule capsule = mCapsuleCache.get(entry.getKey());
           capsule.getFactory().close();
           capsule.getProducer().cleanup(null);
           mCapsuleCache.remove(entry.getKey());
         }
+      // Unload freshness policies from columns whose policies have changed.
+      } else if (newRecords.get(entry.getKey()) != entry.getValue()) {
+        // Remove the policy record.
         mPolicyRecords.remove(entry.getKey());
-      }
-      if (mCapsuleCache.containsKey(entry.getKey())) {
-        final FreshnessCapsule capsule = mCapsuleCache.get(entry.getKey());
-        capsule.getFactory().close();
-        capsule.getProducer().cleanup(null);
-        mCapsuleCache.remove(entry.getKey());
+        // Remove any cached objects.
+        if (mCapsuleCache.containsKey(entry.getKey())) {
+          final FreshnessCapsule capsule = mCapsuleCache.get(entry.getKey());
+          capsule.getFactory().close();
+          capsule.getProducer().cleanup(null);
+          mCapsuleCache.remove(entry.getKey());
+        }
+
       }
     }
     mPolicyRecords.putAll(newRecords);
