@@ -36,7 +36,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.internal.verification.Only;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,6 +116,18 @@ public class TestInternalFreshKijiTableReader {
         throw new RuntimeException("TestProducer thread interrupted during produce sleep.");
       }
       producerContext.put("new-val");
+    }
+  }
+
+  public static final class TestFamilyProducer extends KijiProducer {
+    public KijiDataRequest getDataRequest() {
+      return KijiDataRequest.create("info", "visits");
+    }
+    public String getOutputColumn() {
+      return null;
+    }
+    public void produce(final KijiRowData input, final ProducerContext context) throws IOException {
+      context.put("visits", input.<Long>getMostRecentValue("info", "visits") + 1);
     }
   }
 
@@ -415,7 +426,7 @@ public class TestInternalFreshKijiTableReader {
   }
 
   @Test
-  public void testGetStaleTimeout() throws Exception {
+  public void testGetStaleTimeout() throws IOException, InterruptedException {
     final EntityId eid = mTable.getEntityId("foo");
     final KijiDataRequest request = KijiDataRequest.create("info", "name");
 
@@ -436,6 +447,53 @@ public class TestInternalFreshKijiTableReader {
     Thread.sleep(1000L);
     assertEquals("new-val",
         mReader.get(eid, request).getMostRecentValue("info", "name").toString());
+  }
+
+  @Test
+  public void testGetFreshFamily() throws IOException {
+    final EntityId eid = mTable.getEntityId("foo");
+    final KijiDataRequest request = KijiDataRequest.create("info", "visits");
+
+    // Create a KijiFreshnessManager and register a freshness policy.
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
+    manager.storePolicy("user", "info", TestFamilyProducer.class, new AlwaysFreshen());
+
+    // Open a new reader to pull in the new freshness policy.
+    final FreshKijiTableReader freshReader = FreshKijiTableReaderFactory
+            .getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 100);
+
+    assertEquals(
+       43L, freshReader.get(eid, request).getMostRecentValue("info", "visits"));
+  }
+
+  @Test
+  public void testGetMultipleQualifiersFromFamily() throws IOException {
+    final EntityId eid = mTable.getEntityId("foo");
+    final KijiDataRequest nameRequest = KijiDataRequest.create("info", "name");
+    final KijiDataRequest visitsRequest = KijiDataRequest.create("info", "visits");
+    final KijiDataRequestBuilder builder = KijiDataRequest.builder();
+    builder.newColumnsDef().add("info", "visits").add("info", "name");
+    final KijiDataRequest completeRequest = builder.build();
+
+    // Create a KijiFreshnessManager and register a freshness policy.
+    final KijiFreshnessManager manager = KijiFreshnessManager.create(mKiji);
+    manager.storePolicy("user", "info", TestFamilyProducer.class, new AlwaysFreshen());
+
+    // Open a new reader to pull in the new freshness policy.
+    final FreshKijiTableReader freshReader = FreshKijiTableReaderFactory
+        .getFactory(FreshReaderFactoryType.LOCAL).openReader(mTable, 100);
+
+    // Check that each request freshens.
+    // Get the nameRequest which will update the visits column.
+    freshReader.get(eid, nameRequest);
+    // Get the visitsRequest and expect the visits column has been incremented twice.
+    assertEquals(
+        44L, freshReader.get(eid, visitsRequest).getMostRecentValue("info", "visits"));
+
+    // Expect that the producer will only run one additional time despite two columns in the same
+    // request.
+    assertEquals(
+        45L, freshReader.get(eid, completeRequest).getMostRecentValue("info", "visits"));
   }
 
   @Test

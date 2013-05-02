@@ -320,7 +320,7 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
         final KijiFreshnessPolicyRecord familyRecord = mPolicyRecords.get(family);
         // Ensure that there is only one freshness policy applicable to this column.
         Preconditions.checkState(!(qualifiedRecord != null && familyRecord != null),
-            String.format("A record exists for both the family: %s and qualified column: %s\n"
+            String.format("A record exists for both the family: %s and qualified column: %s%n"
                 + "Only one may be specified.",
                 family.toString(), column.getColumnName().toString()));
         KijiFreshnessPolicyRecord record = null;
