@@ -127,13 +127,13 @@ public class TestKijiFreshnessManager {
     ShelfLife policy = new ShelfLife(100);
     mFreshManager.storePolicy("user", "info:name", TestProducer.class, policy);
     mFreshManager.storePolicy("user", "info:email", TestProducer.class, policy);
-    mFreshManager.storePolicy("user", "info", TestProducer.class, policy);
+    mFreshManager.storePolicy("user", "networks", TestProducer.class, policy);
     Map<KijiColumnName, KijiFreshnessPolicyRecord> policies =
         mFreshManager.retrievePolicies("user");
     assertEquals(policies.size(), 3);
     assertTrue(policies.containsKey(new KijiColumnName("info", "name")));
     assertTrue(policies.containsKey(new KijiColumnName("info", "email")));
-    assertTrue(policies.containsKey(new KijiColumnName("info")));
+    assertTrue(policies.containsKey(new KijiColumnName("networks")));
   }
 
   /** Tests that retrieving a policy that doesn't exist returns null. */
@@ -152,5 +152,39 @@ public class TestKijiFreshnessManager {
     mFreshManager.removePolicy("user", "info:name");
     mPolicyRecord = mFreshManager.retrievePolicy("user", "info:name");
     assertNull(mPolicyRecord);
+  }
+
+  @Test
+  public void testInvalidColumnAttachment() throws IOException {
+    final ShelfLife policy = new ShelfLife(100);
+    try {
+      mFreshManager.storePolicy("user", "info:invalid", TestProducer.class, policy);
+    } catch (IllegalArgumentException iae) {
+      assertEquals("Table does not contain specified column: info:invalid", iae.getMessage());
+    }
+    try {
+      mFreshManager.storePolicy("user", "info", TestProducer.class, policy);
+    } catch (IllegalArgumentException iae) {
+      assertEquals("Specified family: info is not a valid Map Type family in the table: user",
+          iae.getMessage());
+    }
+    mFreshManager.storePolicy("user", "networks", TestProducer.class, policy);
+    try {
+      mFreshManager.storePolicy("user", "networks:qualifier", TestProducer.class, policy);
+    } catch (IllegalArgumentException iae) {
+      assertEquals("There is already a freshness policy attached to family: networks Freshness "
+          + "policies may not be attached to a map type family and fully qualified columns within "
+          + "that family.", iae.getMessage());
+    }
+    mFreshManager.removePolicy("user", "networks");
+    mFreshManager.storePolicy("user", "networks:qualifier", TestProducer.class, policy);
+    try {
+      mFreshManager.storePolicy("user", "networks", TestProducer.class, policy);
+    } catch (IllegalArgumentException iae) {
+      assertEquals("There is already a freshness policy attached to a fully qualified column in "
+          + "family: networks Freshness policies may not be attached to a map type family and fully"
+          + " qualified columns within that family. To view a list of attached freshness policies "
+          + "check log files for KijiFreshnessManager.", iae.getMessage());
+    }
   }
 }

@@ -34,6 +34,8 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
@@ -41,7 +43,9 @@ import org.kiji.mapreduce.produce.KijiProducer;
 import org.kiji.schema.Kiji;
 import org.kiji.schema.KijiColumnName;
 import org.kiji.schema.KijiMetaTable;
+import org.kiji.schema.KijiTable;
 import org.kiji.schema.KijiTableNotFoundException;
+import org.kiji.schema.layout.KijiTableLayout.LocalityGroupLayout.FamilyLayout;
 import org.kiji.schema.util.ProtocolVersion;
 import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 
@@ -55,6 +59,8 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
 @ApiAudience.Public
 @ApiStability.Experimental
 public final class KijiFreshnessManager implements Closeable {
+  private static final Logger LOG = LoggerFactory.getLogger(KijiFreshnessManager.class);
+
   /** The minimum freshness version supported by this version of the KijiFreshnessManager. */
   private static final ProtocolVersion MIN_FRESHNESS_RECORD_VER =
       ProtocolVersion.parse("policyrecord-0.1");
@@ -67,8 +73,11 @@ public final class KijiFreshnessManager implements Closeable {
   /** The prefix we use for freshness policies stored in a meta table. */
   private static final String METATABLE_KEY_PREFIX = "kiji.scoring.fresh.";
 
+  /** The Kiji instance to manage freshness policies within. */
+  private final Kiji mKiji;
+
   /** The backing metatable. */
-  private KijiMetaTable mMetaTable;
+  private final KijiMetaTable mMetaTable;
 
   /** An output stream writer suitable for serializing FreshnessPolicyRecords. */
   private final ByteArrayOutputStream mOutputStream;
@@ -89,6 +98,7 @@ public final class KijiFreshnessManager implements Closeable {
    * @throws IOException if there is an error retrieving the metatable.
    */
   private KijiFreshnessManager(Kiji kiji) throws IOException {
+    mKiji = kiji;
     mMetaTable = kiji.getMetaTable();
     // Setup members responsible for serializing/deserializing records.
     mOutputStream = new ByteArrayOutputStream();
@@ -127,7 +137,68 @@ public final class KijiFreshnessManager implements Closeable {
   public void storePolicy(String tableName, String columnName,
       Class<? extends KijiProducer> producerClass, KijiFreshnessPolicy policy)
       throws IOException {
+    // Check that the table exists.
+    if (!mMetaTable.tableExists(tableName)) {
+      throw new KijiTableNotFoundException("Couldn't find table: " + tableName);
+    }
+    // Check that the column name is valid.
+    KijiColumnName kcn = new KijiColumnName(columnName);
+    // Check that the table includes the specified column or family.
+    final KijiTable table = mKiji.openTable(tableName);
+    final Set<KijiColumnName> columnsNames = table.getLayout().getColumnNames();
+    final Map<String, FamilyLayout> familyMap = table.getLayout().getFamilyMap();
+    // Check that the column exists if it is fully qualified
+    if (kcn.isFullyQualified()) {
+      if (familyMap.containsKey(kcn.getFamily()) && familyMap.get(kcn.getFamily()).isGroupType()
+          && !columnsNames.contains(kcn)) {
+        throw new IllegalArgumentException(String.format(
+            "Table does not contain specified column: %s", kcn.toString()));
+      } else {
+        if (familyMap.containsKey(kcn.getFamily()) && familyMap.get(kcn.getFamily()).isMapType()
+            && mMetaTable.keySet(tableName).contains(getMetaTableKey(kcn.getFamily()))) {
+          // check for a policy attached to kcn.getFamily()
+          throw new IllegalArgumentException(String.format("There is already a freshness policy "
+              + "attached to family: %s Freshness policies may not be attached to a map type "
+              + "family and fully qualified columns within that family.", kcn.getFamily()));
+        }
+      }
+    } else {
+      // If not fully qualified, check that the family exists and is a map type family.
+      if (!familyMap.containsKey(kcn.toString()) || familyMap.get(kcn.toString()).isGroupType()) {
+        throw new IllegalArgumentException(String.format(
+            "Specified family: %s is not a valid Map Type family in the table: %s",
+            kcn.toString(), tableName));
+      } else {
+        // check for a policy attached to any qualified column in kcn
+        final Set<String> keys = mMetaTable.keySet(tableName);
+        boolean qualifiedColumnExists = false;
+        for (String key : keys) {
+          final boolean keyDisqualifies = key.startsWith(getMetaTableKey(kcn.toString()));
+          if (keyDisqualifies) {
+            LOG.error("Cannot attach freshness policy to family: {} qualified column: {} already "
+                + "has an attached freshness policy.", kcn.toString(),
+                key.substring(METATABLE_KEY_PREFIX.length()));
+          }
+          qualifiedColumnExists = keyDisqualifies || qualifiedColumnExists;
+
+        }
+        if (qualifiedColumnExists) {
+          throw new IllegalArgumentException(String.format("There is already a freshness policy "
+              + "attached to a fully qualified column in family: %s Freshness policies may not be "
+              + "attached to a map type family and fully qualified columns within that family. To "
+              + "view a list of attached freshness policies check log files for "
+              + "KijiFreshnessManager.",
+              kcn.toString()));
+        }
+      }
+    }
     // TODO(Score-22): Design checks to perform here.
+    // currently checks that the table exists, that the column name is valid, that the column
+    // exists if it is fully qualified, that the family is a map type family if not fully
+    // qualified, and that the new attachment does not violate the exclusion between family level
+    // freshening and fully qualified freshening in a map type family.
+
+    // Once all checks have passed, register the strings directly.
     storePolicyWithStrings(
         tableName,
         columnName,
