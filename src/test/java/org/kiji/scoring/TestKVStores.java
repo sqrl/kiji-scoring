@@ -117,6 +117,7 @@ public class TestKVStores extends KijiClientTest {
 
     @Override
     public KijiDataRequest getDataRequest() {
+      // Never called so it doesn't matter.
       return null;
     }
 

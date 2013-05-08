@@ -48,6 +48,27 @@
  *   tools: Contains command line interface tools for registering and inspecting freshness policies.
  * </p>
  *
+ * <h3>Creation of policies and producers:</h3>
+ * <p>Each FreshKijiTableReader has its own copy of its producers and policies.</p>
+ * <p>Producers and policies are created lazily as needed in response to the first request that
+ *   requires their attached columns. The process of instantiation is as follows:
+ *   <ol>
+ *     <li>The freshness policy object is created using reflection utilities (calling the empty
+ *     constructor.)</li>
+ *     <li>The freshness policy is initialized by calling
+ *     {@link org.kiji.scoring.KijiFreshnessPolicy#deserialize(String)} with the stored state.</li>
+ *     <li>The Producer object is created using reflection utilities (calling the empty
+ *     constructor).</li>
+ *     <li>{@link org.kiji.mapreduce.produce.KijiProducer#getRequiredStores()} is called followed by
+ *     {@link org.kiji.scoring.KijiFreshnessPolicy#getRequiredStores()}. If the producer and policy
+ *     both name a store with the same key, the policy's has precedence.</li>
+ *     <li>The producer is initialized by calling
+ *     {@link org.kiji.mapreduce.produce.KijiProducer#setup(org.kiji.mapreduce.KijiContext)}. The
+ *     KijiContext has accessed to the registered key-value stores.</li>
+ *   </ol>
+ *   The producer and policy for a column are saved and re-used until the reader is closed or a
+ *   reload indicates that the column's policy has been unregistered or updated.
+ * </p>
  * <h3>Other notes:</h3>
  * <p>
  *   {@link org.kiji.mapreduce.produce.ProducerContext} objects passed to

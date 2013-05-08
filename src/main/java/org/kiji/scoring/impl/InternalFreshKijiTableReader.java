@@ -349,7 +349,6 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           kvMap.putAll(producer.getRequiredStores());
           kvMap.putAll(policy.getRequiredStores());
           KeyValueStoreReaderFactory factory = KeyValueStoreReaderFactory.create(kvMap);
-          kvMap.clear();
 
           // Initialize the producer.
           producer.setup(KijiFreshProducerContext.create(mTable, columnName, null, factory));

@@ -50,12 +50,12 @@ import org.kiji.scoring.avro.KijiFreshnessPolicyRecord;
  *  kiji fresh kiji://.env/instance/table --do=retrieve-all
  *  // Print the freshness policy attached to a column.  (If multiple columns are specified, will
  *  // print each freshness policy)
- *  kiji fresh kiji://.env/instance/table/family:qualifier
+ *  kiji fresh kiji://.env/instance/table/family:qualifier --do=retrieve
  *  // Register a freshness policy for a column
- *  kiji fresh kiji://.env/instance/table/family:qualifer org.kiji.scoring.lib.ShelfLife 10 \
- *    com.mycompany.freshening.RecommendingProducer
+ *  kiji fresh kiji://.env/instance/table/family:qualifer --do=register \
+ *    org.kiji.scoring.lib.ShelfLife 10 com.mycompany.freshening.RecommendingProducer
  *  // Unregister a freshness policy from a column
- *  kiji fresh kiji://.env/instance/table/family:qualifier
+ *  kiji fresh kiji://.env/instance/table/family:qualifier --do=unregister
  *  </pre>
  */
 public class FreshTool extends BaseTool {
