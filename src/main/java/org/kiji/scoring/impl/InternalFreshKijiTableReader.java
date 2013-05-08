@@ -340,9 +340,8 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           // Add the policy to the list of policies applicable to this data request.
           policies.put(columnName, policy);
 
-          // Instantiate and initialize the producer. Add it to the serialize.
+          // Instantiate the producer.
           final KijiProducer producer = producerForName(record.getProducerClass());
-          producer.setup(null);
 
           // Create a kvstore reader factory for this policy and populate it with
           // required stores.
@@ -351,6 +350,9 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
           kvMap.putAll(policy.getRequiredStores());
           KeyValueStoreReaderFactory factory = KeyValueStoreReaderFactory.create(kvMap);
           kvMap.clear();
+
+          // Initialize the producer.
+          producer.setup(KijiFreshProducerContext.create(mTable, columnName, null, factory));
 
           // Encapsulate the policy, producer, and factory and serialize them in a cache.
           final FreshnessCapsule capsule = new FreshnessCapsule(policy, producer, factory);
@@ -690,8 +692,10 @@ public final class InternalFreshKijiTableReader implements FreshKijiTableReader 
   public void close() throws IOException {
     // Cleanup all cached producers.
     for (KijiColumnName key : mCapsuleCache.keySet()) {
-      mCapsuleCache.get(key).getProducer().cleanup(null);
-      mCapsuleCache.get(key).getFactory().close();
+      KeyValueStoreReaderFactory factory = mCapsuleCache.get(key).getFactory();
+      mCapsuleCache.get(key)
+          .getProducer().cleanup(KijiFreshProducerContext.create(mTable, key, null, factory));
+      factory.close();
     }
     if (mReloadTask != null) {
       mReloadTask.cancel();

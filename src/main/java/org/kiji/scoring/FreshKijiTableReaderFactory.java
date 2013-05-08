@@ -47,6 +47,10 @@ public abstract class FreshKijiTableReaderFactory {
     LOCAL
   }
 
+  /** A default factory to provide a convenient way to get readers for the common case. */
+  private static final FreshKijiTableReaderFactory DEFAULT_FACTORY =
+      new LocalFreshKijiTableReaderFactory();
+
   /**
    * Get a FreshKijiTableReaderFactory for the specified type of FreshReader.
    *
@@ -64,10 +68,17 @@ public abstract class FreshKijiTableReaderFactory {
   }
 
   /**
+   * Get the default FreshKijiTableReaderFactory instance, provided for convenience.
+   *
+   * @return the default FreshKijiTableReaderFactory instance.
+   */
+  public static FreshKijiTableReaderFactory getDefaultFactory() {
+    return DEFAULT_FACTORY;
+  }
+
+  /**
    * Open a new FreshKijiTableReader for a given table with a given read timeout.  This reader will
-   * not automatically reload freshness policy data from the metatable.  If the
-   * FreshenerThreadPool singleton object does not exist, it will be created with the default
-   * number of threads.
+   * not automatically reload freshness policy data from the metatable.
    *
    * @param table the KijiTable to read from.
    * @param timeout how long to wait before returning stale data.
@@ -78,9 +89,7 @@ public abstract class FreshKijiTableReaderFactory {
 
   /**
    * Open a new FreshKijiTableReader for a given table with a given read timeout.  This reader will
-   * automatically reload freshness policy data from the metatable periodically.  If the
-   * FreshenerThreadPool singleton object does not exist, it will be created with the default
-   * number of threads.
+   * automatically reload freshness policy data from the metatable periodically.
    *
    * @param table the KijiTable to read from.
    * @param timeout how long to wait before returning stale data.
@@ -91,25 +100,6 @@ public abstract class FreshKijiTableReaderFactory {
    */
   public abstract FreshKijiTableReader openReader(KijiTable table, int timeout, int reloadTime)
       throws IOException;
-
-  /**
-   * Open a new FreshKijiTableReader for a given table with a given read timeout.  This reader will
-   * automatically reload freshness policy data from the metatable periodically.  If the
-   * FreshenerThreadPool singleton objet does not exist, it will be created with the specified
-   * number of threads.
-   *
-   * @param table the KijiTable to read from.
-   * @param timeout how long to wait before returning stale data.
-   * @param reloadTime how long between automatically reloading freshness policies from the
-   * metatable.
-   * @param poolSize the number of threads to create the FreshenerThreadPool with, if it does not
-   * already exist.
-   * @return a new FreshKijiTableReader for a given table with a given read timeout and reload time.
-   * @throws IOException in case of an error opening the reader.
-   */
-  public abstract FreshKijiTableReader openReader(
-      KijiTable table, int timeout, int reloadTime, int poolSize) throws IOException;
-
 
   /**
    * FreshKijiTableReaderFactory for creating InternalFreshKijiTableReader instances.
@@ -127,13 +117,6 @@ public abstract class FreshKijiTableReaderFactory {
     public FreshKijiTableReader openReader(KijiTable table, int timeout, int reloadTime)
         throws IOException {
       return new InternalFreshKijiTableReader(table, timeout, reloadTime);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public FreshKijiTableReader openReader(
-        KijiTable table, int timeout, int reloadTime, int poolSize) throws IOException {
-      return new InternalFreshKijiTableReader(table, timeout, reloadTime, poolSize);
     }
   }
 
