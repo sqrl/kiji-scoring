@@ -23,6 +23,10 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableSet;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+
 import org.kiji.annotations.ApiAudience;
 import org.kiji.annotations.ApiStability;
 import org.kiji.mapreduce.kvstore.KeyValueStore;
@@ -101,13 +105,18 @@ public class NewerThan implements KijiFreshnessPolicy {
   @Override
   public String serialize() {
     // The only required state is the newer than timestamp.
-    return String.valueOf(mNewerThanTimestamp);
+    final JsonObject jsonObject = new JsonObject();
+    jsonObject.add("newerThan", new JsonPrimitive(mNewerThanTimestamp));
+
+    return jsonObject.toString();
   }
 
   /** {@inheritDoc} */
   @Override
   public void deserialize(String policyState) {
+    final JsonParser parser = new JsonParser();
+    final JsonObject jsonObject = (JsonObject) parser.parse(policyState);
     // Load the newer than timestamp from the policy state.
-    mNewerThanTimestamp = Long.parseLong(policyState);
+    mNewerThanTimestamp = jsonObject.get("newerThan").getAsLong();
   }
 }

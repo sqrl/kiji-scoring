@@ -19,6 +19,7 @@
 
 package org.kiji.scoring.lib;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -96,11 +97,25 @@ public class TestShelfLife {
     final PolicyContext context =
         new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
     final ShelfLife policy = new ShelfLife();
-    policy.deserialize(String.valueOf(Long.MAX_VALUE));
+    policy.deserialize(String.format("{\"shelfLife\":%d}", Long.MAX_VALUE));
 
     assertTrue(policy.isFresh(rowData, context));
 
-    policy.deserialize(String.valueOf(Long.MIN_VALUE));
+    policy.deserialize(String.format("{\"shelfLife\":%d}", Long.MIN_VALUE));
     assertFalse(policy.isFresh(rowData, context));
+  }
+
+  @Test
+  public void testSerializeDeserialize() {
+    final ShelfLife policy = new ShelfLife(10);
+    // Serialize the state of the policy.
+    final String state = policy.serialize();
+    LOG.info(state);
+    // Deserialize the state back into the policy.
+    policy.deserialize(state);
+    // Serialize the newly stored state from the policy.
+    final String loopedState = policy.serialize();
+    // Assert that the loop has not mutated the state.
+    assertEquals(state, loopedState);
   }
 }

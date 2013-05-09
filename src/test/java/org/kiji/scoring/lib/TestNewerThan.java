@@ -19,6 +19,7 @@
 
 package org.kiji.scoring.lib;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -98,11 +99,25 @@ public final class TestNewerThan extends KijiClientTest {
     final PolicyContext context =
         new InternalPolicyContext(request, new KijiColumnName("info", "name"), mKiji.getConf());
     final NewerThan policy = new NewerThan();
-    policy.deserialize("1");
+    policy.deserialize("{\"newerThan\":1}");
 
     assertTrue(policy.isFresh(rowData, context));
 
-    policy.deserialize("10");
+    policy.deserialize("{\"newerThan\":10}");
     assertFalse(policy.isFresh(rowData, context));
+  }
+
+  @Test
+  public void testSerializeDeserialize() {
+    final NewerThan policy = new NewerThan(10);
+    // Serialize the state of the policy.
+    final String state = policy.serialize();
+    LOG.info(state);
+    // Deserialize the state back into the policy.
+    policy.deserialize(state);
+    // Serialize the newly stored state from the policy.
+    final String loopedState = policy.serialize();
+    // Assert that the loop has not mutated the state.
+    assertEquals(state, loopedState);
   }
 }

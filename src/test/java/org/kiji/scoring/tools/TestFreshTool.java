@@ -102,7 +102,7 @@ public class TestFreshTool extends KijiClientTest {
             .withColumnNames(Lists.newArrayList("info:name")).build().toString(),
         "--do=register",
         "org.kiji.scoring.lib.ShelfLife",
-        "10",
+        "{\"shelfLife\":10}",
         "org.kiji.scoring.tools.TestFreshTool$TestProducer"
     ));
 
@@ -111,12 +111,12 @@ public class TestFreshTool extends KijiClientTest {
         .setProducerClass(TestProducer.class.getName())
         .setFreshnessPolicyClass(Class.forName("org.kiji.scoring.lib.ShelfLife")
             .asSubclass(KijiFreshnessPolicy.class).getName())
-        .setFreshnessPolicyState("10")
+        .setFreshnessPolicyState("{\"shelfLife\":10}")
         .build();
     final KijiFreshnessManager manager = KijiFreshnessManager.create(getKiji());
     assertEquals(record, manager.retrievePolicy("user", "info:name"));
-    assertEquals("Freshness policy: org.kiji.scoring.lib.ShelfLife with state: 10 and producer: "
-        + "org.kiji.scoring.tools.TestFreshTool$TestProducer\n"
+    assertEquals("Freshness policy: org.kiji.scoring.lib.ShelfLife with state: {\"shelfLife\":10} "
+        + "and producer: org.kiji.scoring.tools.TestFreshTool$TestProducer\n"
         + "attached to column: info:name in table: user", mToolOutputStr);
   }
 
