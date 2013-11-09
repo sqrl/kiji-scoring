@@ -54,6 +54,7 @@ import org.kiji.schema.tools.ToolUtils
 import org.kiji.schema.util.ProtocolVersion
 import org.kiji.schema.{ EntityId => JEntityId }
 import org.kiji.web.KijiScoringServerCell
+import org.kiji.scoring.server.kvstore.lib.ThreadLocalMapKVStore
 
 
 /**
@@ -81,6 +82,7 @@ class GenericScoringServlet extends HttpServlet {
   var mExtractor: Option[Extractor] = None
   var mScorer: Scorer = null
   var mRowConverter: GenericRowDataConverter = null
+  var mThreadLocalKVStore: ThreadLocalMapKVStore = null
 
   override def init() {
     val modelName: String = getServletConfig.getInitParameter(MODEL_GROUP_KEY)
@@ -229,7 +231,21 @@ class GenericScoringServlet extends HttpServlet {
     // Fetch the entity_id parameter from the URL. Fail if not specified.
     val eidString: String =
         Preconditions.checkNotNull(req.getParameter("eid"), "Entity ID required!", "");
-    // TODO also fetch request parameters and pass them to the ScoreProducer.
+
+    // Fetch a map of request parameters.
+    import scala.collection.JavaConverters.enumerationAsScalaIteratorConverter
+    import scala.collection.JavaConverters.mapAsJavaMapConverter
+    val freshenerParameters = req
+        .getParameterNames
+        .asScala
+        .collect {
+          case x: String if x.startsWith("fresh.") => {
+            (x.stripPrefix("fresh."), req.getParameter(x))
+          }
+        }
+        .toMap
+        .asJava
+
 
     doAndClose(new OutputStreamWriter(resp.getOutputStream, "UTF-8")) {
       osw: OutputStreamWriter => {
